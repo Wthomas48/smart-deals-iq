@@ -83,3 +83,7 @@ client/
 - Skeleton loading component created for improved perceived performance
 - Updated terminology to "restaurants and local businesses" instead of "food vendors"
 - Fixed loading states to render deals while location resolves (shows "?" distance)
+- Added voice input feature for vendor promotions using Gemini AI
+- VoiceInput component with expo-audio for microphone recording
+- AI-generated promotion copy from voice descriptions
+- Voice API endpoints: /api/voice/transcribe and /api/voice/generate-promo
