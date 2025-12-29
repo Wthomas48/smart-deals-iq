@@ -79,3 +79,7 @@ client/
 - GPS location integration with expo-location for real proximity-based deal sorting
 - Push notification integration with expo-notifications for nearby vendor alerts
 - LocationNotificationBridge component wires location updates to notification triggers
+- Added haptic feedback on key interactions (favoriting, refreshing, filtering, map interactions)
+- Skeleton loading component created for improved perceived performance
+- Updated terminology to "restaurants and local businesses" instead of "food vendors"
+- Fixed loading states to render deals while location resolves (shows "?" distance)
