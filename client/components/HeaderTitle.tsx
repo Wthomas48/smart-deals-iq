@@ -2,13 +2,13 @@ import React from "react";
 import { View, StyleSheet, Image } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Spacing } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface HeaderTitleProps {
-  title: string;
+  title?: string;
 }
 
-export function HeaderTitle({ title }: HeaderTitleProps) {
+export function HeaderTitle({ title = "SmartDealsIQ" }: HeaderTitleProps) {
   return (
     <View style={styles.container}>
       <Image
@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     marginRight: Spacing.sm,
+    borderRadius: BorderRadius.xs,
   },
   title: {
     fontSize: 17,
