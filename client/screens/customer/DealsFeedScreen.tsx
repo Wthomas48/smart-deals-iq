@@ -133,7 +133,7 @@ export default function DealsFeedScreen() {
     return (
       <Card
         style={styles.dealCard}
-        onPress={() => navigation.navigate("VendorDetail", { vendorId: item.vendor!.id })}
+        onPress={() => navigation.navigate("DealDetail", { dealId: item.id })}
       >
         <View style={styles.dealHeader}>
           <Image source={{ uri: item.vendor.image }} style={styles.vendorImage} />

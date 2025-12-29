@@ -34,11 +34,10 @@ export default function OnboardingScreen() {
   };
 
   const switchMode = (newMode: AuthMode) => {
+    clearForm();
     if (newMode === "welcome") {
-      clearForm();
       setSelectedRole(null);
     }
-    setError("");
     setMode(newMode);
   };
 

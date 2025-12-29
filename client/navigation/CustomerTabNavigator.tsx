@@ -13,6 +13,7 @@ import DealsFeedScreen from "@/screens/customer/DealsFeedScreen";
 import MapScreen from "@/screens/customer/MapScreen";
 import FavoritesScreen from "@/screens/customer/FavoritesScreen";
 import VendorDetailScreen from "@/screens/customer/VendorDetailScreen";
+import DealDetailScreen from "@/screens/customer/DealDetailScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
 
 export type CustomerStackParamList = {
@@ -20,6 +21,7 @@ export type CustomerStackParamList = {
   Map: undefined;
   Favorites: undefined;
   VendorDetail: { vendorId: string };
+  DealDetail: { dealId: string };
   Profile: undefined;
 };
 
@@ -50,6 +52,14 @@ function DealsStack() {
         component={VendorDetailScreen}
         options={{
           headerTitle: "Vendor Details",
+          headerTransparent: false,
+        }}
+      />
+      <Stack.Screen
+        name="DealDetail"
+        component={DealDetailScreen}
+        options={{
+          headerTitle: "Deal Details",
           headerTransparent: false,
         }}
       />
