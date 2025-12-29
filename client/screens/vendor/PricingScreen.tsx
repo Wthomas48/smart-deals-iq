@@ -107,10 +107,10 @@ export default function PricingScreen() {
                 onPress={() => handleSelectPlan(plan.id)}
               >
                 <Card
-                  style={[
-                    styles.planCard,
-                    selectedPlan === plan.id && { borderColor: Colors.primary, borderWidth: 2 },
-                  ]}
+                  style={{
+                    ...styles.planCard,
+                    ...(selectedPlan === plan.id ? { borderColor: Colors.primary, borderWidth: 2 } : {}),
+                  }}
                 >
                   <View style={styles.planHeader}>
                     <View>

@@ -87,3 +87,8 @@ client/
 - VoiceInput component with expo-audio for microphone recording
 - AI-generated promotion copy from voice descriptions
 - Voice API endpoints: /api/voice/transcribe and /api/voice/generate-promo
+- Added subscription/pricing system for vendors
+- Two pricing tiers: $7.99 for 7-day ads, $29.99 for 30-day ads
+- AI features (voice input, AI suggestions) gated behind paid subscription
+- Pricing tab in vendor navigation with subscription management
+- Note: Stripe integration not yet connected (mock payment flow)
