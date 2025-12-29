@@ -13,6 +13,7 @@ import DashboardScreen from "@/screens/vendor/DashboardScreen";
 import PromotionsScreen from "@/screens/vendor/PromotionsScreen";
 import CustomersScreen from "@/screens/vendor/CustomersScreen";
 import ToolsScreen from "@/screens/vendor/ToolsScreen";
+import PricingScreen from "@/screens/vendor/PricingScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
 
 export type VendorStackParamList = {
@@ -20,6 +21,7 @@ export type VendorStackParamList = {
   Promotions: undefined;
   Customers: undefined;
   Tools: undefined;
+  Pricing: undefined;
   Profile: undefined;
 };
 
@@ -28,6 +30,7 @@ export type VendorTabParamList = {
   PromotionsTab: undefined;
   CustomersTab: undefined;
   ToolsTab: undefined;
+  PricingTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -92,6 +95,22 @@ function ToolsStack() {
         component={ToolsScreen}
         options={{
           headerTitle: "Tools",
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function PricingStack() {
+  const screenOptions = useScreenOptions();
+
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen
+        name="Pricing"
+        component={PricingScreen}
+        options={{
+          headerTitle: "Pricing",
         }}
       />
     </Stack.Navigator>
@@ -179,6 +198,16 @@ export default function VendorTabNavigator() {
           title: "Tools",
           tabBarIcon: ({ color, size }) => (
             <Feather name="grid" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="PricingTab"
+        component={PricingStack}
+        options={{
+          title: "Pricing",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="credit-card" size={size} color={color} />
           ),
         }}
       />

@@ -11,9 +11,11 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { VoiceInput } from "@/components/VoiceInput";
 import { useTheme } from "@/hooks/useTheme";
 import { useData, Promotion } from "@/lib/data-context";
+import { useSubscription } from "@/lib/subscription-context";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 
 const AI_SUGGESTIONS = [
   "Taco Tuesday: Buy 2, Get 1 Free until 2pm!",
@@ -29,6 +31,8 @@ export default function PromotionsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const { promotions, addPromotion, updatePromotion, deletePromotion } = useData();
+  const { isSubscribed, daysRemaining } = useSubscription();
+  const navigation = useNavigation<any>();
 
   const [showModal, setShowModal] = useState(false);
   const [showAISuggestions, setShowAISuggestions] = useState(false);
@@ -196,36 +200,59 @@ export default function PromotionsScreen() {
 
             <Spacer size="2xl" />
 
-            <VoiceInput
-              placeholder="Describe your promotion by voice"
-              mode="generate-promo"
-              onTranscription={(text) => {
-                setTitle(text);
-                setDescription(`Special deal: ${text}`);
-              }}
-              onError={(error) => {
-                if (Platform.OS === "web") {
-                  Alert.alert("Voice Input", error);
-                }
-              }}
-            />
+            {isSubscribed ? (
+              <>
+                <VoiceInput
+                  placeholder="Describe your promotion by voice"
+                  mode="generate-promo"
+                  onTranscription={(text) => {
+                    setTitle(text);
+                    setDescription(`Special deal: ${text}`);
+                  }}
+                  onError={(error) => {
+                    if (Platform.OS === "web") {
+                      Alert.alert("Voice Input", error);
+                    }
+                  }}
+                />
 
-            <Spacer size="md" />
+                <Spacer size="md" />
 
-            <Pressable
-              style={[styles.aiButton, { backgroundColor: Colors.accent + "20" }]}
-              onPress={handleAISuggest}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <ActivityIndicator size="small" color={Colors.accent} />
-              ) : (
-                <Feather name="zap" size={18} color={Colors.accent} />
-              )}
-              <ThemedText type="body" style={{ color: Colors.accent, marginLeft: Spacing.sm, fontWeight: "600" }}>
-                {isGenerating ? "Generating..." : "AI Suggest"}
-              </ThemedText>
-            </Pressable>
+                <Pressable
+                  style={[styles.aiButton, { backgroundColor: Colors.accent + "20" }]}
+                  onPress={handleAISuggest}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <ActivityIndicator size="small" color={Colors.accent} />
+                  ) : (
+                    <Feather name="zap" size={18} color={Colors.accent} />
+                  )}
+                  <ThemedText type="body" style={{ color: Colors.accent, marginLeft: Spacing.sm, fontWeight: "600" }}>
+                    {isGenerating ? "Generating..." : "AI Suggest"}
+                  </ThemedText>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                style={[styles.upgradeButton, { backgroundColor: Colors.primary + "15", borderColor: Colors.primary }]}
+                onPress={() => {
+                  setShowModal(false);
+                  navigation.navigate("PricingTab");
+                }}
+              >
+                <Feather name="lock" size={18} color={Colors.primary} />
+                <View style={styles.upgradeTextContainer}>
+                  <ThemedText type="body" style={{ color: Colors.primary, fontWeight: "600" }}>
+                    Unlock AI Features
+                  </ThemedText>
+                  <ThemedText type="caption" secondary>
+                    Subscribe to use voice input and AI suggestions
+                  </ThemedText>
+                </View>
+                <Feather name="chevron-right" size={20} color={Colors.primary} />
+              </Pressable>
+            )}
 
             {showAISuggestions ? (
               <View style={styles.suggestionsContainer}>
@@ -421,6 +448,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.sm,
+  },
+  upgradeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    gap: Spacing.md,
+  },
+  upgradeTextContainer: {
+    flex: 1,
   },
   suggestionsContainer: {
     marginTop: Spacing.lg,

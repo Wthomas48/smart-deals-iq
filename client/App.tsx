@@ -12,6 +12,7 @@ import { queryClient } from "@/lib/query-client";
 import { AuthProvider } from "@/lib/auth-context";
 import { DataProvider } from "@/lib/data-context";
 import { LocationProvider } from "@/lib/location-context";
+import { SubscriptionProvider } from "@/lib/subscription-context";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LocationNotificationBridge } from "@/components/LocationNotificationBridge";
@@ -23,6 +24,7 @@ export default function App() {
         <AuthProvider>
           <DataProvider>
             <LocationProvider>
+              <SubscriptionProvider>
               <LocationNotificationBridge />
               <SafeAreaProvider>
                 <GestureHandlerRootView style={styles.root}>
@@ -34,6 +36,7 @@ export default function App() {
                   </KeyboardProvider>
                 </GestureHandlerRootView>
               </SafeAreaProvider>
+              </SubscriptionProvider>
             </LocationProvider>
           </DataProvider>
         </AuthProvider>
