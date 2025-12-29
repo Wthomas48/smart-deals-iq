@@ -25,7 +25,8 @@ export default function DealsFeedScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { vendors, deals, isFavorite, addFavorite, removeFavorite } = useData();
-  const { userLocation, locationPermission, requestPermission, calculateDistance, refreshLocation } = useLocation();
+  const locationContext = useLocation();
+  const { userLocation, locationPermission, requestPermission, calculateDistance, refreshLocation, isLoading: locationLoading } = locationContext;
   const [refreshing, setRefreshing] = useState(false);
 
   const dealsWithVendors = useMemo(() => {
@@ -52,8 +53,6 @@ export default function DealsFeedScreen() {
     await new Promise((resolve) => setTimeout(resolve, 500));
     setRefreshing(false);
   };
-
-  const { isLoading: locationLoading } = useLocation();
 
   if (locationLoading) {
     return (

@@ -292,6 +292,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavorites));
   };
 
+  const notifiedVendorsRef = React.useRef<Map<string, number>>(new Map());
+  const NOTIFICATION_COOLDOWN_MS = 30 * 60 * 1000;
+
   const checkNearbyVendorsForNotifications = async (
     userLat: number,
     userLon: number,
@@ -311,14 +314,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return R * c;
     };
 
+    const now = Date.now();
+
     for (const fav of favorites) {
       if (!fav.notifyWhenNearby) continue;
       const vendor = mockVendors.find((v) => v.id === fav.vendorId);
       if (!vendor) continue;
 
+      const lastNotified = notifiedVendorsRef.current.get(vendor.id);
+      if (lastNotified && now - lastNotified < NOTIFICATION_COOLDOWN_MS) {
+        continue;
+      }
+
       const distance = haversineDistance(userLat, userLon, vendor.latitude, vendor.longitude);
       if (distance <= alertRadiusMiles) {
         await scheduleNearbyVendorNotification(vendor.name, distance);
+        notifiedVendorsRef.current.set(vendor.id, now);
       }
     }
   };
