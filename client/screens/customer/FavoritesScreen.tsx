@@ -4,6 +4,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -68,7 +69,10 @@ export default function FavoritesScreen() {
             </View>
           </View>
           <Pressable
-            onPress={() => removeFavorite(item.vendorId)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              removeFavorite(item.vendorId);
+            }}
             hitSlop={8}
             style={styles.removeButton}
           >
@@ -83,7 +87,10 @@ export default function FavoritesScreen() {
           </View>
           <Switch
             value={item.notifyWhenNearby}
-            onValueChange={() => toggleNotifyNearby(item.vendorId)}
+            onValueChange={() => {
+              Haptics.selectionAsync();
+              toggleNotifyNearby(item.vendorId);
+            }}
             trackColor={{ false: theme.backgroundTertiary, true: Colors.primary + "60" }}
             thumbColor={item.notifyWhenNearby ? Colors.primary : theme.backgroundSecondary}
           />

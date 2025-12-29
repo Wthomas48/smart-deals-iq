@@ -5,6 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Location from "expo-location";
+import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -74,6 +75,7 @@ export default function MapScreen() {
   };
 
   const handleMarkerPress = (vendor: Vendor) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedVendor(vendor);
     mapRef.current?.animateToRegion({
       latitude: vendor.latitude,
@@ -108,7 +110,7 @@ export default function MapScreen() {
               Enable Location
             </ThemedText>
             <ThemedText type="body" secondary style={styles.permissionText}>
-              SmartDealsIQ needs your location to show nearby food vendors and deals
+              SmartDealsIQ needs your location to show nearby restaurants and local businesses
             </ThemedText>
             <Spacer size="xl" />
             <Button onPress={requestPermission}>Enable Location</Button>
@@ -192,7 +194,7 @@ export default function MapScreen() {
               selectedVendor?.id === vendor.id && styles.markerSelected,
             ]}>
               <Feather
-                name="truck"
+                name="map-pin"
                 size={16}
                 color={vendor.isOpen ? "#fff" : theme.textSecondary}
               />
@@ -210,7 +212,10 @@ export default function MapScreen() {
               { backgroundColor: theme.backgroundDefault },
               radiusIndex === index && { backgroundColor: Colors.primary },
             ]}
-            onPress={() => setRadiusIndex(index)}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setRadiusIndex(index);
+            }}
           >
             <ThemedText
               type="small"
@@ -225,6 +230,7 @@ export default function MapScreen() {
       <Pressable
         style={[styles.locationButton, { backgroundColor: theme.backgroundDefault, bottom: tabBarHeight + (selectedVendor ? 180 : Spacing.xl) }]}
         onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           if (userLocation) {
             mapRef.current?.animateToRegion({
               latitude: userLocation.latitude,

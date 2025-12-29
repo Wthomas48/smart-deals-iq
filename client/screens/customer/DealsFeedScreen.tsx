@@ -5,6 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as LocationModule from "expo-location";
+import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -61,23 +62,14 @@ export default function DealsFeedScreen() {
   }, [deals, vendors, userLocation, calculateDistance, searchQuery, selectedCuisine]);
 
   const onRefresh = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(true);
     await refreshLocation();
     await new Promise((resolve) => setTimeout(resolve, 500));
     setRefreshing(false);
   };
 
-  if (locationLoading) {
-    return (
-      <ThemedView style={styles.container}>
-        <View style={[styles.permissionContainer, { paddingTop: headerHeight }]}>
-          <ThemedText type="body" secondary>Loading location...</ThemedText>
-        </View>
-      </ThemedView>
-    );
-  }
-
-  if (locationPermission !== LocationModule.PermissionStatus.GRANTED) {
+  if (locationPermission !== LocationModule.PermissionStatus.GRANTED && !locationLoading) {
     return (
       <ThemedView style={styles.container}>
         <View style={[styles.permissionContainer, { paddingTop: headerHeight }]}>
@@ -117,6 +109,7 @@ export default function DealsFeedScreen() {
   };
 
   const toggleFavorite = async (vendorId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (isFavorite(vendorId)) {
       await removeFavorite(vendorId);
     } else {
@@ -248,7 +241,10 @@ export default function DealsFeedScreen() {
                 borderColor: selectedCuisine === cuisine ? Colors.primary : theme.border,
               }
             ]}
-            onPress={() => setSelectedCuisine(cuisine)}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setSelectedCuisine(cuisine);
+            }}
           >
             <ThemedText 
               type="small" 

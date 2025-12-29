@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, Pressable, Image } from "react-native";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -50,6 +51,7 @@ export default function DealDetailScreen() {
   const savingsPercent = Math.round((savings / deal.originalPrice) * 100);
   
   const handleToggleFavorite = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (favorited) {
       removeFavorite(vendor.id);
     } else {
