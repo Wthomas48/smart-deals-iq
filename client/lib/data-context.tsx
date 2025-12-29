@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { requestNotificationPermission, scheduleNearbyVendorNotification } from "./notification-service";
 
 export interface Vendor {
   id: string;
@@ -77,6 +78,7 @@ interface DataContextType {
   addPromotion: (promo: Omit<Promotion, "id">) => Promise<void>;
   updatePromotion: (id: string, updates: Partial<Promotion>) => Promise<void>;
   deletePromotion: (id: string) => Promise<void>;
+  checkNearbyVendorsForNotifications: (userLat: number, userLon: number, alertRadiusMiles?: number) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -273,11 +275,52 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleNotifyNearby = async (vendorId: string) => {
+    const currentFav = favorites.find((f) => f.vendorId === vendorId);
+    const newValue = currentFav ? !currentFav.notifyWhenNearby : true;
+
+    if (newValue) {
+      const hasPermission = await requestNotificationPermission();
+      if (!hasPermission) {
+        return;
+      }
+    }
+
     const newFavorites = favorites.map((f) =>
-      f.vendorId === vendorId ? { ...f, notifyWhenNearby: !f.notifyWhenNearby } : f
+      f.vendorId === vendorId ? { ...f, notifyWhenNearby: newValue } : f
     );
     setFavorites(newFavorites);
     await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavorites));
+  };
+
+  const checkNearbyVendorsForNotifications = async (
+    userLat: number,
+    userLon: number,
+    alertRadiusMiles: number = 0.5
+  ) => {
+    const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const R = 3959;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    for (const fav of favorites) {
+      if (!fav.notifyWhenNearby) continue;
+      const vendor = mockVendors.find((v) => v.id === fav.vendorId);
+      if (!vendor) continue;
+
+      const distance = haversineDistance(userLat, userLon, vendor.latitude, vendor.longitude);
+      if (distance <= alertRadiusMiles) {
+        await scheduleNearbyVendorNotification(vendor.name, distance);
+      }
+    }
   };
 
   const isFavorite = (vendorId: string) => favorites.some((f) => f.vendorId === vendorId);
@@ -323,6 +366,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addPromotion,
         updatePromotion,
         deletePromotion,
+        checkNearbyVendorsForNotifications,
         isLoading,
       }}
     >

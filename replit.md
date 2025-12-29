@@ -22,6 +22,8 @@ client/
 ├── lib/
 │   ├── auth-context.tsx    # Authentication state management
 │   ├── data-context.tsx    # Data management (vendors, deals, favorites)
+│   ├── location-context.tsx # GPS location management with expo-location
+│   ├── notification-service.tsx # Push notification integration
 │   └── query-client.ts     # React Query setup
 ├── navigation/
 │   ├── RootStackNavigator.tsx      # Root navigation with auth check
@@ -74,3 +76,6 @@ client/
 - Role-based authentication and navigation
 - Mock data for vendors, deals, and analytics
 - AsyncStorage persistence for favorites and promotions
+- GPS location integration with expo-location for real proximity-based deal sorting
+- Push notification integration with expo-notifications for nearby vendor alerts
+- LocationNotificationBridge component wires location updates to notification triggers

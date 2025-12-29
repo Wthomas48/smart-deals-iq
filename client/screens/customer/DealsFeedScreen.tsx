@@ -1,15 +1,18 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import * as LocationModule from "expo-location";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Spacer } from "@/components/Spacer";
+import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useData } from "@/lib/data-context";
+import { useLocation } from "@/lib/location-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { CustomerStackParamList } from "@/navigation/CustomerTabNavigator";
@@ -22,21 +25,66 @@ export default function DealsFeedScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { vendors, deals, isFavorite, addFavorite, removeFavorite } = useData();
+  const { userLocation, locationPermission, requestPermission, calculateDistance, refreshLocation } = useLocation();
   const [refreshing, setRefreshing] = useState(false);
 
   const dealsWithVendors = useMemo(() => {
     return deals.map((deal) => {
       const vendor = vendors.find((v) => v.id === deal.vendorId);
-      const distance = (Math.random() * 3 + 0.1).toFixed(1);
+      let distance: string;
+      if (vendor && userLocation) {
+        const dist = calculateDistance(vendor.latitude, vendor.longitude);
+        distance = dist !== null ? dist.toFixed(1) : "?";
+      } else {
+        distance = "?";
+      }
       return { ...deal, vendor, distance };
-    }).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
-  }, [deals, vendors]);
+    }).sort((a, b) => {
+      const distA = parseFloat(a.distance) || 999;
+      const distB = parseFloat(b.distance) || 999;
+      return distA - distB;
+    });
+  }, [deals, vendors, userLocation, calculateDistance]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await refreshLocation();
+    await new Promise((resolve) => setTimeout(resolve, 500));
     setRefreshing(false);
   };
+
+  const { isLoading: locationLoading } = useLocation();
+
+  if (locationLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={[styles.permissionContainer, { paddingTop: headerHeight }]}>
+          <ThemedText type="body" secondary>Loading location...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  if (locationPermission !== LocationModule.PermissionStatus.GRANTED) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={[styles.permissionContainer, { paddingTop: headerHeight }]}>
+          <View style={[styles.permissionCard, { backgroundColor: theme.backgroundSecondary }]}>
+            <Feather name="map-pin" size={48} color={Colors.primary} />
+            <Spacer size="lg" />
+            <ThemedText type="h3" style={styles.permissionTitle}>
+              Enable Location
+            </ThemedText>
+            <ThemedText type="body" secondary style={styles.permissionText}>
+              SmartDealsIQ needs your location to show nearby deals sorted by distance
+            </ThemedText>
+            <Spacer size="xl" />
+            <Button onPress={requestPermission}>Enable Location</Button>
+          </View>
+        </View>
+      </ThemedView>
+    );
+  }
 
   const getTimeRemaining = (expiresAt: string) => {
     const now = new Date();
@@ -303,5 +351,23 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: "center",
     marginTop: Spacing.sm,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  permissionCard: {
+    width: "100%",
+    padding: Spacing["2xl"],
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+  },
+  permissionTitle: {
+    textAlign: "center",
+  },
+  permissionText: {
+    textAlign: "center",
   },
 });

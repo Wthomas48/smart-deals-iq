@@ -11,8 +11,10 @@ import { queryClient } from "@/lib/query-client";
 
 import { AuthProvider } from "@/lib/auth-context";
 import { DataProvider } from "@/lib/data-context";
+import { LocationProvider } from "@/lib/location-context";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LocationNotificationBridge } from "@/components/LocationNotificationBridge";
 
 export default function App() {
   return (
@@ -20,16 +22,19 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <DataProvider>
-            <SafeAreaProvider>
-              <GestureHandlerRootView style={styles.root}>
-                <KeyboardProvider>
-                  <NavigationContainer>
-                    <RootStackNavigator />
-                  </NavigationContainer>
-                  <StatusBar style="auto" />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </SafeAreaProvider>
+            <LocationProvider>
+              <LocationNotificationBridge />
+              <SafeAreaProvider>
+                <GestureHandlerRootView style={styles.root}>
+                  <KeyboardProvider>
+                    <NavigationContainer>
+                      <RootStackNavigator />
+                    </NavigationContainer>
+                    <StatusBar style="auto" />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </SafeAreaProvider>
+            </LocationProvider>
           </DataProvider>
         </AuthProvider>
       </QueryClientProvider>
