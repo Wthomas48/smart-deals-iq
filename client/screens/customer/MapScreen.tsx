@@ -4,7 +4,6 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
 import * as Location from "expo-location";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -16,6 +15,24 @@ import { useData, Vendor } from "@/lib/data-context";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { CustomerStackParamList } from "@/navigation/CustomerTabNavigator";
+
+let MapView: any = null;
+let Marker: any = null;
+let PROVIDER_GOOGLE: any = null;
+
+if (Platform.OS !== "web") {
+  const Maps = require("react-native-maps");
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+}
+
+type Region = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
 
 type NavigationProp = NativeStackNavigationProp<CustomerStackParamList>;
 
@@ -29,7 +46,7 @@ export default function MapScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { vendors, deals, isFavorite } = useData();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   const [permission, requestPermission] = Location.useForegroundPermissions();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -114,6 +131,43 @@ export default function MapScreen() {
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       };
+
+  if (Platform.OS === "web" || !MapView) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={[styles.permissionContainer, { paddingTop: headerHeight }]}>
+          <View style={[styles.permissionCard, { backgroundColor: theme.backgroundDefault }]}>
+            <Feather name="map" size={48} color={Colors.primary} />
+            <Spacer size="lg" />
+            <ThemedText type="h3" style={styles.permissionTitle}>
+              Map View
+            </ThemedText>
+            <ThemedText type="body" secondary style={styles.permissionText}>
+              The interactive map is available in Expo Go on your mobile device. Scan the QR code to experience the full map features.
+            </ThemedText>
+            <Spacer size="lg" />
+            <View style={styles.vendorListWeb}>
+              {vendors.map((vendor) => (
+                <Card
+                  key={vendor.id}
+                  style={styles.vendorCardWeb}
+                  onPress={() => navigation.navigate("VendorDetail", { vendorId: vendor.id })}
+                >
+                  <View style={styles.vendorCardContent}>
+                    <Image source={{ uri: vendor.image }} style={styles.vendorImage} />
+                    <View style={styles.vendorInfo}>
+                      <ThemedText type="h4" numberOfLines={1}>{vendor.name}</ThemedText>
+                      <ThemedText type="small" secondary>{vendor.cuisine}</ThemedText>
+                    </View>
+                  </View>
+                </Card>
+              ))}
+            </View>
+          </View>
+        </View>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -338,5 +392,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
+  },
+  vendorListWeb: {
+    width: "100%",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  vendorCardWeb: {
+    padding: Spacing.md,
   },
 });
