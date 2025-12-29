@@ -26,6 +26,22 @@ export default function OnboardingScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const clearForm = () => {
+    setName("");
+    setEmail("");
+    setPassword("");
+    setError("");
+  };
+
+  const switchMode = (newMode: AuthMode) => {
+    if (newMode === "welcome") {
+      clearForm();
+      setSelectedRole(null);
+    }
+    setError("");
+    setMode(newMode);
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
       setError("Please fill in all fields");
@@ -85,11 +101,11 @@ export default function OnboardingScreen() {
         Discover amazing deals from food vendors near you
       </ThemedText>
       <Spacer size="3xl" />
-      <Button onPress={() => setMode("signup")} style={styles.primaryButton}>
+      <Button onPress={() => switchMode("signup")} style={styles.primaryButton}>
         Get Started
       </Button>
       <Spacer size="md" />
-      <Pressable onPress={() => setMode("login")} style={styles.secondaryButton}>
+      <Pressable onPress={() => switchMode("login")} style={styles.secondaryButton}>
         <ThemedText type="body" style={{ color: Colors.primary }}>
           Already have an account? Log in
         </ThemedText>
@@ -104,7 +120,7 @@ export default function OnboardingScreen() {
         { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl },
       ]}
     >
-      <Pressable onPress={() => setMode("welcome")} style={styles.backButton}>
+      <Pressable onPress={() => switchMode("welcome")} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={theme.text} />
       </Pressable>
       <Spacer size="xl" />
@@ -143,7 +159,7 @@ export default function OnboardingScreen() {
         {isLoading ? <ActivityIndicator color="#fff" /> : "Log In"}
       </Button>
       <Spacer size="lg" />
-      <Pressable onPress={() => setMode("signup")}>
+      <Pressable onPress={() => switchMode("signup")}>
         <ThemedText type="small" style={{ color: Colors.primary, textAlign: "center" }}>
           Don't have an account? Sign up
         </ThemedText>
@@ -158,7 +174,7 @@ export default function OnboardingScreen() {
         { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl },
       ]}
     >
-      <Pressable onPress={() => setMode("welcome")} style={styles.backButton}>
+      <Pressable onPress={() => switchMode("welcome")} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={theme.text} />
       </Pressable>
       <Spacer size="xl" />
@@ -203,7 +219,7 @@ export default function OnboardingScreen() {
       <Spacer size="2xl" />
       <Button onPress={handleContinue}>Continue</Button>
       <Spacer size="lg" />
-      <Pressable onPress={() => setMode("login")}>
+      <Pressable onPress={() => switchMode("login")}>
         <ThemedText type="small" style={{ color: Colors.primary, textAlign: "center" }}>
           Already have an account? Log in
         </ThemedText>
@@ -213,7 +229,7 @@ export default function OnboardingScreen() {
 
   const renderRoleSelection = () => (
     <View style={[styles.formContainer, { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl }]}>
-      <Pressable onPress={() => setMode("signup")} style={styles.backButton}>
+      <Pressable onPress={() => switchMode("signup")} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={theme.text} />
       </Pressable>
       <Spacer size="xl" />

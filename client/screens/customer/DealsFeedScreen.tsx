@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image, TextInput, ScrollView } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -19,6 +19,8 @@ import { CustomerStackParamList } from "@/navigation/CustomerTabNavigator";
 
 type NavigationProp = NativeStackNavigationProp<CustomerStackParamList>;
 
+const CUISINE_FILTERS = ["All", "Mexican", "Korean", "Italian", "Indian", "American", "Asian"];
+
 export default function DealsFeedScreen() {
   const { theme } = useTheme();
   const headerHeight = useHeaderHeight();
@@ -28,6 +30,8 @@ export default function DealsFeedScreen() {
   const locationContext = useLocation();
   const { userLocation, locationPermission, requestPermission, calculateDistance, refreshLocation, isLoading: locationLoading } = locationContext;
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCuisine, setSelectedCuisine] = useState("All");
 
   const dealsWithVendors = useMemo(() => {
     return deals.map((deal) => {
@@ -40,12 +44,21 @@ export default function DealsFeedScreen() {
         distance = "?";
       }
       return { ...deal, vendor, distance };
+    }).filter((deal) => {
+      if (!deal.vendor) return false;
+      const matchesSearch = searchQuery === "" || 
+        deal.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        deal.vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        deal.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCuisine = selectedCuisine === "All" || 
+        deal.vendor.cuisine.toLowerCase() === selectedCuisine.toLowerCase();
+      return matchesSearch && matchesCuisine;
     }).sort((a, b) => {
       const distA = parseFloat(a.distance) || 999;
       const distB = parseFloat(b.distance) || 999;
       return distA - distB;
     });
-  }, [deals, vendors, userLocation, calculateDistance]);
+  }, [deals, vendors, userLocation, calculateDistance, searchQuery, selectedCuisine]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -203,6 +216,53 @@ export default function DealsFeedScreen() {
     );
   };
 
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+        <Feather name="search" size={20} color={theme.textSecondary} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.text }]}
+          placeholder="Search deals, vendors..."
+          placeholderTextColor={theme.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 ? (
+          <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+            <Feather name="x" size={18} color={theme.textSecondary} />
+          </Pressable>
+        ) : null}
+      </View>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        contentContainerStyle={styles.filtersContainer}
+      >
+        {CUISINE_FILTERS.map((cuisine) => (
+          <Pressable
+            key={cuisine}
+            style={[
+              styles.filterChip,
+              { 
+                backgroundColor: selectedCuisine === cuisine ? Colors.primary : theme.backgroundSecondary,
+                borderColor: selectedCuisine === cuisine ? Colors.primary : theme.border,
+              }
+            ]}
+            onPress={() => setSelectedCuisine(cuisine)}
+          >
+            <ThemedText 
+              type="small" 
+              style={{ color: selectedCuisine === cuisine ? "#fff" : theme.text }}
+            >
+              {cuisine}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </ScrollView>
+      <Spacer size="sm" />
+    </View>
+  );
+
   return (
     <ThemedView style={styles.container}>
       <FlatList
@@ -214,6 +274,7 @@ export default function DealsFeedScreen() {
           { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl },
         ]}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderHeader}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
@@ -222,9 +283,11 @@ export default function DealsFeedScreen() {
           <View style={styles.emptyContainer}>
             <Feather name="map-pin" size={48} color={theme.textSecondary} />
             <Spacer size="lg" />
-            <ThemedText type="h4">No deals nearby</ThemedText>
+            <ThemedText type="h4">No deals found</ThemedText>
             <ThemedText type="body" secondary style={styles.emptyText}>
-              Try expanding your search radius or check back later
+              {searchQuery || selectedCuisine !== "All" 
+                ? "Try adjusting your search or filters" 
+                : "Check back later for new deals"}
             </ThemedText>
           </View>
         }
@@ -368,5 +431,31 @@ const styles = StyleSheet.create({
   },
   permissionText: {
     textAlign: "center",
+  },
+  headerContainer: {
+    marginBottom: Spacing.md,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+    fontSize: 16,
+  },
+  filtersContainer: {
+    gap: Spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
 });
