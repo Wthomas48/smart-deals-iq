@@ -97,7 +97,7 @@ export default function OnboardingScreen() {
       </View>
       <ThemedText type="h1" style={styles.title}>SmartDealsIQ</ThemedText>
       <ThemedText type="body" secondary style={styles.subtitle}>
-        Discover amazing deals from food vendors near you
+        Discover amazing deals from restaurants and local food businesses near you
       </ThemedText>
       <Spacer size="3xl" />
       <Button onPress={() => switchMode("signup")} style={styles.primaryButton}>

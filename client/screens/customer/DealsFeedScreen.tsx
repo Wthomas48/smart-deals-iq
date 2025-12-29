@@ -88,7 +88,7 @@ export default function DealsFeedScreen() {
               Enable Location
             </ThemedText>
             <ThemedText type="body" secondary style={styles.permissionText}>
-              SmartDealsIQ needs your location to show nearby deals sorted by distance
+              SmartDealsIQ needs your location to show nearby deals from restaurants and local businesses
             </ThemedText>
             <Spacer size="xl" />
             <Button onPress={requestPermission}>Enable Location</Button>

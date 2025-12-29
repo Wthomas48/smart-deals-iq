@@ -1,10 +1,10 @@
 # SmartDealsIQ
 
 ## Overview
-SmartDealsIQ is a mobile-first application for discovering deals from food vendors near you. The app serves two distinct user types:
+SmartDealsIQ is a mobile-first application for discovering deals from restaurants, small businesses, and food vendors near you. The app serves two distinct user types:
 
-1. **Customers**: Discover nearby food vendor deals, follow favorite vendors, view on map
-2. **Vendors**: Manage promotions, track analytics, use AI tools, manage customer CRM
+1. **Customers**: Discover nearby deals from restaurants, cafes, food trucks, and local food businesses; follow favorites and view on map
+2. **Vendors/Businesses**: Manage promotions, track analytics, use AI tools, manage customer CRM
 
 ## Tech Stack
 - **Frontend**: React Native with Expo (Expo Go compatible)
