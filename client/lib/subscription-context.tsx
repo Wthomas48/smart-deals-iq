@@ -11,18 +11,18 @@ export interface SubscriptionPlan {
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
-    id: "weekly",
-    name: "7-Day Ad",
+    id: "single",
+    name: "Single Ad",
     price: 7.99,
     duration: 7,
-    description: "Promote your deals for 7 days",
+    description: "Promote one deal for 7 days",
   },
   {
     id: "monthly",
-    name: "30-Day Ad",
+    name: "30 Day Ad",
     price: 29.99,
     duration: 30,
-    description: "Promote your deals for 30 days",
+    description: "Unlimited promotions for 30 days",
   },
 ];
 
