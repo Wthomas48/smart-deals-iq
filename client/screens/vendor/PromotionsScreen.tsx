@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, TextInput, Modal, Switch, ActivityIndicator } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, TextInput, Modal, Switch, ActivityIndicator, Alert, Platform } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ThemedText } from "@/components/ThemedText";
@@ -8,6 +8,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Spacer } from "@/components/Spacer";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { VoiceInput } from "@/components/VoiceInput";
 import { useTheme } from "@/hooks/useTheme";
 import { useData, Promotion } from "@/lib/data-context";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -194,6 +195,22 @@ export default function PromotionsScreen() {
             </View>
 
             <Spacer size="2xl" />
+
+            <VoiceInput
+              placeholder="Describe your promotion by voice"
+              mode="generate-promo"
+              onTranscription={(text) => {
+                setTitle(text);
+                setDescription(`Special deal: ${text}`);
+              }}
+              onError={(error) => {
+                if (Platform.OS === "web") {
+                  Alert.alert("Voice Input", error);
+                }
+              }}
+            />
+
+            <Spacer size="md" />
 
             <Pressable
               style={[styles.aiButton, { backgroundColor: Colors.accent + "20" }]}
