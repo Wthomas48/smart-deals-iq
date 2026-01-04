@@ -48,7 +48,9 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     try {
       const { status } = await Location.getForegroundPermissionsAsync();
       setLocationPermission(status);
-      if (status === Location.PermissionStatus.GRANTED) {
+      // On web, only fetch location in response to user gesture to avoid browser warning
+      // Native platforms can auto-fetch if permission is already granted
+      if (status === Location.PermissionStatus.GRANTED && Platform.OS !== "web") {
         await fetchLocation();
       }
     } catch (error) {

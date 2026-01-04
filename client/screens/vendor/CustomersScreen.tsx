@@ -1,11 +1,14 @@
-import React, { useState } from "react";
-import { View, StyleSheet, FlatList, TextInput, Pressable } from "react-native";
+import React, { useState, useMemo } from "react";
+import { View, StyleSheet, FlatList, TextInput, Pressable, Modal, ScrollView, Platform } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Spacer } from "@/components/Spacer";
+import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useData, CustomerRecord } from "@/lib/data-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -17,17 +20,32 @@ export default function CustomersScreen() {
   const { theme } = useTheme();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { customers } = useData();
+  const insets = useSafeAreaInsets();
+  const { customers, analytics } = useData();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showSendOfferModal, setShowSendOfferModal] = useState(false);
 
-  const filters: { key: FilterType; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "top", label: "Top Spenders" },
-    { key: "atrisk", label: "At Risk" },
-    { key: "new", label: "New" },
+  const filters: { key: FilterType; label: string; icon: string }[] = [
+    { key: "all", label: "All", icon: "users" },
+    { key: "top", label: "Top Spenders", icon: "award" },
+    { key: "atrisk", label: "At Risk", icon: "alert-triangle" },
+    { key: "new", label: "New", icon: "user-plus" },
   ];
+
+  // Customer analytics
+  const customerStats = useMemo(() => {
+    const totalCustomers = customers.length;
+    const totalRevenue = customers.reduce((sum, c) => sum + c.totalSpent, 0);
+    const avgSpend = totalCustomers > 0 ? totalRevenue / totalCustomers : 0;
+    const repeatRate = totalCustomers > 0
+      ? (customers.filter(c => c.visitCount > 1).length / totalCustomers) * 100
+      : 0;
+    return { totalCustomers, totalRevenue, avgSpend, repeatRate };
+  }, [customers]);
 
   const getFilteredCustomers = () => {
     let filtered = customers;
@@ -76,44 +94,129 @@ export default function CustomersScreen() {
       .slice(0, 2);
   };
 
-  const renderCustomer = ({ item }: { item: CustomerRecord }) => (
-    <Card style={styles.customerCard}>
-      <View style={styles.customerContent}>
-        <View style={[styles.avatar, { backgroundColor: Colors.secondary + "30" }]}>
-          <ThemedText type="body" style={{ color: Colors.secondary, fontWeight: "600" }}>
-            {getInitials(item.name)}
-          </ThemedText>
-        </View>
-        <View style={styles.customerInfo}>
-          <ThemedText type="body" style={{ fontWeight: "600" }}>{item.name}</ThemedText>
-          <ThemedText type="small" secondary>{item.email}</ThemedText>
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <Feather name="repeat" size={12} color={theme.textSecondary} />
-              <ThemedText type="caption" secondary style={styles.statText}>
-                {item.visitCount} visits
-              </ThemedText>
+  const handleCustomerPress = (customer: CustomerRecord) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedCustomer(customer);
+    setShowCustomerModal(true);
+  };
+
+  const handleSendOffer = (customer: CustomerRecord) => {
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    setSelectedCustomer(customer);
+    setShowSendOfferModal(true);
+  };
+
+  const renderAnalyticsHeader = () => (
+    <View style={styles.analyticsContainer}>
+      <Card style={styles.analyticsCard}>
+        <ThemedText type="h4">Customer Insights</ThemedText>
+        <Spacer size="md" />
+        <View style={styles.statsGrid}>
+          <View style={styles.statBox}>
+            <View style={[styles.statIcon, { backgroundColor: Colors.primary + "20" }]}>
+              <Feather name="users" size={18} color={Colors.primary} />
             </View>
-            <View style={styles.stat}>
-              <Feather name="dollar-sign" size={12} color={theme.textSecondary} />
-              <ThemedText type="caption" secondary style={styles.statText}>
-                ${item.totalSpent.toFixed(2)}
-              </ThemedText>
+            <ThemedText type="h3">{customerStats.totalCustomers}</ThemedText>
+            <ThemedText type="caption" secondary>Total</ThemedText>
+          </View>
+          <View style={styles.statBox}>
+            <View style={[styles.statIcon, { backgroundColor: Colors.success + "20" }]}>
+              <Feather name="dollar-sign" size={18} color={Colors.success} />
             </View>
-            <View style={styles.stat}>
-              <Feather name="clock" size={12} color={theme.textSecondary} />
-              <ThemedText type="caption" secondary style={styles.statText}>
-                {formatDate(item.lastVisit)}
-              </ThemedText>
+            <ThemedText type="h3">${customerStats.totalRevenue.toFixed(0)}</ThemedText>
+            <ThemedText type="caption" secondary>Revenue</ThemedText>
+          </View>
+          <View style={styles.statBox}>
+            <View style={[styles.statIcon, { backgroundColor: Colors.accent + "20" }]}>
+              <Feather name="trending-up" size={18} color={Colors.accent} />
             </View>
+            <ThemedText type="h3">${customerStats.avgSpend.toFixed(0)}</ThemedText>
+            <ThemedText type="caption" secondary>Avg Spend</ThemedText>
+          </View>
+          <View style={styles.statBox}>
+            <View style={[styles.statIcon, { backgroundColor: Colors.secondary + "20" }]}>
+              <Feather name="repeat" size={18} color={Colors.secondary} />
+            </View>
+            <ThemedText type="h3">{customerStats.repeatRate.toFixed(0)}%</ThemedText>
+            <ThemedText type="caption" secondary>Repeat</ThemedText>
           </View>
         </View>
-        <Pressable style={[styles.sendOfferButton, { backgroundColor: Colors.primary + "15" }]}>
-          <Feather name="send" size={16} color={Colors.primary} />
-        </Pressable>
-      </View>
-    </Card>
+      </Card>
+      <Spacer size="md" />
+    </View>
   );
+
+  const renderCustomer = ({ item }: { item: CustomerRecord }) => {
+    const isTopSpender = customers.sort((a, b) => b.totalSpent - a.totalSpent).indexOf(item) < 3;
+    const isAtRisk = (() => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return new Date(item.lastVisit) < thirtyDaysAgo;
+    })();
+
+    return (
+    <Pressable onPress={() => handleCustomerPress(item)}>
+      <Card style={styles.customerCard}>
+        <View style={styles.customerContent}>
+          <View style={[styles.avatar, { backgroundColor: Colors.secondary + "30" }]}>
+            <ThemedText type="body" style={{ color: Colors.secondary, fontWeight: "600" }}>
+              {getInitials(item.name)}
+            </ThemedText>
+            {isTopSpender && (
+              <View style={styles.topBadge}>
+                <Feather name="award" size={10} color="#fff" />
+              </View>
+            )}
+          </View>
+          <View style={styles.customerInfo}>
+            <View style={styles.customerNameRow}>
+              <ThemedText type="body" style={{ fontWeight: "600" }}>{item.name}</ThemedText>
+              {isAtRisk && (
+                <View style={[styles.atRiskBadge, { backgroundColor: Colors.error + "20" }]}>
+                  <ThemedText type="caption" style={{ color: Colors.error }}>At Risk</ThemedText>
+                </View>
+              )}
+            </View>
+            <ThemedText type="small" secondary>{item.email}</ThemedText>
+            <View style={styles.statsRow}>
+              <View style={styles.stat}>
+                <Feather name="repeat" size={12} color={theme.textSecondary} />
+                <ThemedText type="caption" secondary style={styles.statText}>
+                  {item.visitCount} visits
+                </ThemedText>
+              </View>
+              <View style={styles.stat}>
+                <Feather name="dollar-sign" size={12} color={Colors.success} />
+                <ThemedText type="caption" style={{ ...styles.statText, color: Colors.success }}>
+                  ${item.totalSpent.toFixed(0)}
+                </ThemedText>
+              </View>
+              <View style={styles.stat}>
+                <Feather name="clock" size={12} color={theme.textSecondary} />
+                <ThemedText type="caption" secondary style={styles.statText}>
+                  {formatDate(item.lastVisit)}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+          <Pressable
+            style={[styles.sendOfferButton, { backgroundColor: Colors.primary + "15" }]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleSendOffer(item);
+            }}
+          >
+            <Feather name="send" size={16} color={Colors.primary} />
+          </Pressable>
+        </View>
+      </Card>
+    </Pressable>
+    );
+  };
 
   const filteredCustomers = getFilteredCustomers();
 
@@ -136,7 +239,11 @@ export default function CustomersScreen() {
           ) : null}
         </View>
 
-        <View style={styles.filtersContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersContainer}
+        >
           {filters.map((filter) => (
             <Pressable
               key={filter.key}
@@ -144,17 +251,27 @@ export default function CustomersScreen() {
                 styles.filterChip,
                 { backgroundColor: activeFilter === filter.key ? Colors.primary : theme.backgroundDefault },
               ]}
-              onPress={() => setActiveFilter(filter.key)}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.selectionAsync();
+                }
+                setActiveFilter(filter.key);
+              }}
             >
+              <Feather
+                name={filter.icon as any}
+                size={14}
+                color={activeFilter === filter.key ? "#fff" : theme.textSecondary}
+              />
               <ThemedText
                 type="small"
-                style={{ color: activeFilter === filter.key ? "#fff" : theme.text }}
+                style={{ color: activeFilter === filter.key ? "#fff" : theme.text, marginLeft: 4 }}
               >
                 {filter.label}
               </ThemedText>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       <FlatList
@@ -168,11 +285,14 @@ export default function CustomersScreen() {
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <Spacer size="sm" />}
         ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <ThemedText type="small" secondary>
-              {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? "s" : ""}
-            </ThemedText>
-          </View>
+          <>
+            {renderAnalyticsHeader()}
+            <View style={styles.listHeader}>
+              <ThemedText type="small" secondary>
+                {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? "s" : ""}
+              </ThemedText>
+            </View>
+          </>
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -185,6 +305,71 @@ export default function CustomersScreen() {
           </View>
         }
       />
+
+      {/* Send Offer Modal */}
+      <Modal visible={showSendOfferModal} animationType="slide" presentationStyle="pageSheet">
+        <ThemedView style={styles.modalContainer}>
+          <View style={[styles.modalContent, { paddingTop: insets.top + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Pressable onPress={() => setShowSendOfferModal(false)}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+              <ThemedText type="h4">Send Offer</ThemedText>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <Spacer size="2xl" />
+
+            {selectedCustomer && (
+              <>
+                <View style={styles.selectedCustomerCard}>
+                  <View style={[styles.avatar, { backgroundColor: Colors.secondary + "30" }]}>
+                    <ThemedText type="body" style={{ color: Colors.secondary, fontWeight: "600" }}>
+                      {getInitials(selectedCustomer.name)}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.customerInfo}>
+                    <ThemedText type="body" style={{ fontWeight: "600" }}>{selectedCustomer.name}</ThemedText>
+                    <ThemedText type="small" secondary>{selectedCustomer.email}</ThemedText>
+                  </View>
+                </View>
+
+                <Spacer size="xl" />
+
+                <ThemedText type="h4">Quick Offers</ThemedText>
+                <Spacer size="md" />
+
+                {[
+                  { title: "10% Off Next Visit", desc: "One-time discount", icon: "percent" },
+                  { title: "Free Item", desc: "Add a free item to order", icon: "gift" },
+                  { title: "Loyalty Bonus", desc: "Double points on next purchase", icon: "star" },
+                  { title: "Custom Offer", desc: "Create a personalized deal", icon: "edit-3" },
+                ].map((offer, index) => (
+                  <Pressable
+                    key={index}
+                    style={[styles.offerOption, { backgroundColor: theme.backgroundSecondary }]}
+                    onPress={() => {
+                      if (Platform.OS !== 'web') {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      }
+                      setShowSendOfferModal(false);
+                    }}
+                  >
+                    <View style={[styles.offerIcon, { backgroundColor: Colors.primary + "20" }]}>
+                      <Feather name={offer.icon as any} size={20} color={Colors.primary} />
+                    </View>
+                    <View style={styles.offerInfo}>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>{offer.title}</ThemedText>
+                      <ThemedText type="caption" secondary>{offer.desc}</ThemedText>
+                    </View>
+                    <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                  </Pressable>
+                ))}
+              </>
+            )}
+          </View>
+        </ThemedView>
+      </Modal>
     </ThemedView>
   );
 }
@@ -210,13 +395,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   filtersContainer: {
-    flexDirection: "row",
     gap: Spacing.sm,
     marginTop: Spacing.md,
   },
   filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+  },
+  analyticsContainer: {},
+  analyticsCard: {},
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statBox: {
+    alignItems: "center",
+    flex: 1,
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  topBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.accent,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  customerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  atRiskBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
     borderRadius: BorderRadius.full,
   },
   listContent: {
@@ -271,5 +496,42 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: "center",
     marginTop: Spacing.sm,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: Spacing.xl,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  selectedCustomerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    backgroundColor: Colors.primary + "10",
+    borderRadius: BorderRadius.lg,
+  },
+  offerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  offerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: Spacing.md,
+  },
+  offerInfo: {
+    flex: 1,
   },
 });

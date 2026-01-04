@@ -15,6 +15,11 @@ import FavoritesScreen from "@/screens/customer/FavoritesScreen";
 import VendorDetailScreen from "@/screens/customer/VendorDetailScreen";
 import DealDetailScreen from "@/screens/customer/DealDetailScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
+import PreferencesScreen from "@/screens/PreferencesScreen";
+import HelpCenterScreen from "@/screens/HelpCenterScreen";
+import ContactScreen from "@/screens/ContactScreen";
+import PrivacyPolicyScreen from "@/screens/PrivacyPolicyScreen";
+import TermsOfServiceScreen from "@/screens/TermsOfServiceScreen";
 
 export type CustomerStackParamList = {
   DealsFeed: undefined;
@@ -23,6 +28,11 @@ export type CustomerStackParamList = {
   VendorDetail: { vendorId: string };
   DealDetail: { dealId: string };
   Profile: undefined;
+  Preferences: undefined;
+  HelpCenter: undefined;
+  Contact: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -125,6 +135,41 @@ function ProfileStack() {
         component={ProfileScreen}
         options={{
           headerTitle: "Profile",
+        }}
+      />
+      <Stack.Screen
+        name="Preferences"
+        component={PreferencesScreen}
+        options={{
+          headerTitle: "Preferences",
+        }}
+      />
+      <Stack.Screen
+        name="HelpCenter"
+        component={HelpCenterScreen}
+        options={{
+          headerTitle: "Help Center",
+        }}
+      />
+      <Stack.Screen
+        name="Contact"
+        component={ContactScreen}
+        options={{
+          headerTitle: "Contact Us",
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          headerTitle: "Privacy Policy",
+        }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{
+          headerTitle: "Terms of Service",
         }}
       />
     </Stack.Navigator>

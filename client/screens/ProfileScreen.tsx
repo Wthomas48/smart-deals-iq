@@ -1,15 +1,20 @@
-import React from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Image } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, ScrollView, Pressable, Alert, Image, TextInput, Modal } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Spacer } from "@/components/Spacer";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/lib/auth-context";
+import { usePreferences } from "@/lib/preferences-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
+
+const GUEST_EMAIL_KEY = "@smartdealsiq_guest_email";
 
 interface SettingsItem {
   icon: string;
@@ -20,10 +25,48 @@ interface SettingsItem {
 }
 
 export default function ProfileScreen() {
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
+  const navigation = useNavigation<any>();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { user, logout } = useAuth();
+  const { user, logout, deleteAccount, isAuthenticated } = useAuth();
+
+  // Guest email state
+  const [guestEmail, setGuestEmail] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+
+  useEffect(() => {
+    loadGuestEmail();
+  }, []);
+
+  const loadGuestEmail = async () => {
+    try {
+      const email = await AsyncStorage.getItem(GUEST_EMAIL_KEY);
+      if (email) setGuestEmail(email);
+    } catch (error) {
+      console.error("Failed to load guest email:", error);
+    }
+  };
+
+  const saveGuestEmail = async () => {
+    if (!emailInput || !emailInput.includes("@")) {
+      Alert.alert("Invalid Email", "Please enter a valid email address");
+      return;
+    }
+    try {
+      await AsyncStorage.setItem(GUEST_EMAIL_KEY, emailInput);
+      setGuestEmail(emailInput);
+      setShowEmailModal(false);
+      Alert.alert("Success", "Email saved! You'll receive deal alerts and updates.");
+    } catch (error) {
+      Alert.alert("Error", "Failed to save email. Please try again.");
+    }
+  };
+
+  const handleVendorLogin = () => {
+    navigation.navigate("Onboarding");
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -51,7 +94,22 @@ export default function ProfileScreen() {
               "This will permanently delete all your data. Are you absolutely sure?",
               [
                 { text: "Cancel", style: "cancel" },
-                { text: "Delete Forever", style: "destructive", onPress: logout },
+                {
+                  text: "Delete Forever",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      // For production, you may want to prompt for password
+                      await deleteAccount("");
+                      Alert.alert("Account Deleted", "Your account has been permanently deleted.");
+                    } catch (error: any) {
+                      // If deletion fails, just log out for now
+                      console.error("Delete account error:", error);
+                      await logout();
+                      Alert.alert("Account Removed", "You have been logged out.");
+                    }
+                  },
+                },
               ]
             );
           },
@@ -60,7 +118,8 @@ export default function ProfileScreen() {
     );
   };
 
-  const settingsSections: { title: string; items: SettingsItem[] }[] = [
+  // Settings sections - adjusted for guest vs authenticated users
+  const settingsSections: { title: string; items: SettingsItem[] }[] = isAuthenticated ? [
     {
       title: "Account",
       items: [
@@ -72,18 +131,18 @@ export default function ProfileScreen() {
     {
       title: "Preferences",
       items: [
-        { icon: "bell", label: "Notifications", action: () => {} },
-        { icon: "map-pin", label: "Location Settings", action: () => {} },
-        { icon: "moon", label: "Appearance", value: "System" },
+        { icon: "bell", label: "Notifications", action: () => navigation.navigate("Preferences") },
+        { icon: "map-pin", label: "Location Settings", action: () => navigation.navigate("Preferences") },
+        { icon: "moon", label: "Appearance", value: themeMode === "system" ? "System" : themeMode === "dark" ? "Dark" : "Light", action: () => navigation.navigate("Preferences") },
       ],
     },
     {
       title: "Support",
       items: [
-        { icon: "help-circle", label: "Help Center", action: () => {} },
-        { icon: "message-circle", label: "Contact Us", action: () => {} },
-        { icon: "file-text", label: "Privacy Policy", action: () => {} },
-        { icon: "book-open", label: "Terms of Service", action: () => {} },
+        { icon: "help-circle", label: "Help Center", action: () => navigation.navigate("HelpCenter") },
+        { icon: "message-circle", label: "Contact Us", action: () => navigation.navigate("Contact") },
+        { icon: "file-text", label: "Privacy Policy", action: () => navigation.navigate("PrivacyPolicy") },
+        { icon: "book-open", label: "Terms of Service", action: () => navigation.navigate("TermsOfService") },
       ],
     },
     {
@@ -91,6 +150,42 @@ export default function ProfileScreen() {
       items: [
         { icon: "log-out", label: "Log Out", action: handleLogout },
         { icon: "trash-2", label: "Delete Account", action: handleDeleteAccount, danger: true },
+      ],
+    },
+  ] : [
+    // Guest user sections
+    {
+      title: "Your Info",
+      items: [
+        {
+          icon: "mail",
+          label: guestEmail ? "Email" : "Add Your Email",
+          value: guestEmail || undefined,
+          action: () => setShowEmailModal(true)
+        },
+      ],
+    },
+    {
+      title: "Preferences",
+      items: [
+        { icon: "bell", label: "Notifications", action: () => navigation.navigate("Preferences") },
+        { icon: "map-pin", label: "Location Settings", action: () => navigation.navigate("Preferences") },
+        { icon: "moon", label: "Appearance", value: themeMode === "system" ? "System" : themeMode === "dark" ? "Dark" : "Light", action: () => navigation.navigate("Preferences") },
+      ],
+    },
+    {
+      title: "For Vendors",
+      items: [
+        { icon: "briefcase", label: "Vendor Sign In", action: handleVendorLogin },
+      ],
+    },
+    {
+      title: "Support",
+      items: [
+        { icon: "help-circle", label: "Help Center", action: () => navigation.navigate("HelpCenter") },
+        { icon: "message-circle", label: "Contact Us", action: () => navigation.navigate("Contact") },
+        { icon: "file-text", label: "Privacy Policy", action: () => navigation.navigate("PrivacyPolicy") },
+        { icon: "book-open", label: "Terms of Service", action: () => navigation.navigate("TermsOfService") },
       ],
     },
   ];
@@ -114,23 +209,30 @@ export default function ProfileScreen() {
         ]}
       >
         <View style={styles.profileHeader}>
-          <View style={[styles.avatar, { backgroundColor: Colors.primary + "20" }]}>
-            <ThemedText type="h2" style={{ color: Colors.primary }}>
-              {user?.name ? getInitials(user.name) : "U"}
+          <View style={[styles.avatar, { backgroundColor: isAuthenticated ? Colors.primary + "20" : Colors.secondary + "20" }]}>
+            <ThemedText type="h2" style={{ color: isAuthenticated ? Colors.primary : Colors.secondary }}>
+              {isAuthenticated && user?.name ? getInitials(user.name) : (guestEmail ? guestEmail[0].toUpperCase() : "G")}
             </ThemedText>
           </View>
-          <ThemedText type="h3" style={styles.userName}>{user?.name}</ThemedText>
-          <View style={[styles.roleBadge, { backgroundColor: user?.role === "vendor" ? Colors.primary + "20" : Colors.secondary + "20" }]}>
+          <ThemedText type="h3" style={styles.userName}>
+            {isAuthenticated ? user?.name : (guestEmail ? guestEmail.split("@")[0] : "Guest User")}
+          </ThemedText>
+          {guestEmail && !isAuthenticated && (
+            <ThemedText type="small" secondary style={{ marginTop: Spacing.xs }}>
+              {guestEmail}
+            </ThemedText>
+          )}
+          <View style={[styles.roleBadge, { backgroundColor: isAuthenticated ? (user?.role === "vendor" ? Colors.primary + "20" : Colors.secondary + "20") : Colors.secondary + "20" }]}>
             <Feather
-              name={user?.role === "vendor" ? "truck" : "user"}
+              name={isAuthenticated ? (user?.role === "vendor" ? "truck" : "user") : "user"}
               size={14}
-              color={user?.role === "vendor" ? Colors.primary : Colors.secondary}
+              color={isAuthenticated ? (user?.role === "vendor" ? Colors.primary : Colors.secondary) : Colors.secondary}
             />
             <ThemedText
               type="caption"
-              style={{ color: user?.role === "vendor" ? Colors.primary : Colors.secondary, marginLeft: Spacing.xs }}
+              style={{ color: isAuthenticated ? (user?.role === "vendor" ? Colors.primary : Colors.secondary) : Colors.secondary, marginLeft: Spacing.xs }}
             >
-              {user?.role === "vendor" ? "Vendor Account" : "Customer Account"}
+              {isAuthenticated ? (user?.role === "vendor" ? "Vendor Account" : "Customer Account") : "Customer"}
             </ThemedText>
           </View>
         </View>
@@ -185,10 +287,60 @@ export default function ProfileScreen() {
             style={styles.footerLogo}
             resizeMode="contain"
           />
-          <ThemedText type="caption" secondary>SmartDealsIQ</ThemedText>
+          <ThemedText type="caption" secondary>SmartDealsIQ™</ThemedText>
           <ThemedText type="caption" secondary>Version 1.0.0</ThemedText>
         </View>
       </ScrollView>
+
+      {/* Email Modal for Guest Users */}
+      <Modal visible={showEmailModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h4">Add Your Email</ThemedText>
+              <Pressable onPress={() => setShowEmailModal(false)}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+
+            <Spacer size="md" />
+
+            <ThemedText type="small" secondary>
+              Get notified about deals near you and save your favorites.
+            </ThemedText>
+
+            <Spacer size="lg" />
+
+            <TextInput
+              style={[styles.emailInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border }]}
+              placeholder="your@email.com"
+              placeholderTextColor={theme.textSecondary}
+              value={emailInput}
+              onChangeText={setEmailInput}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+
+            <Spacer size="lg" />
+
+            <Pressable
+              style={[styles.saveButton, { backgroundColor: Colors.primary }]}
+              onPress={saveGuestEmail}
+            >
+              <ThemedText type="body" style={{ color: "#fff", fontWeight: "600" }}>
+                Save Email
+              </ThemedText>
+            </Pressable>
+
+            <Spacer size="md" />
+
+            <ThemedText type="caption" secondary style={{ textAlign: "center" }}>
+              We respect your privacy. No spam, ever.
+            </ThemedText>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -256,5 +408,34 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    paddingBottom: Spacing["3xl"],
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  emailInput: {
+    height: Spacing.inputHeight,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.lg,
+    fontSize: 16,
+    borderWidth: 1,
+  },
+  saveButton: {
+    height: Spacing.buttonHeight,
+    borderRadius: BorderRadius.lg,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

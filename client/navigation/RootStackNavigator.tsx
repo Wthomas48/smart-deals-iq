@@ -23,6 +23,17 @@ export default function RootStackNavigator() {
   const { theme } = useTheme();
   const { user, isLoading, isAuthenticated } = useAuth();
 
+  // Debug logging for auth state (development only)
+  if (__DEV__) {
+    console.log("[RootStackNavigator] Auth state changed:", {
+      isLoading,
+      isAuthenticated,
+      authState: !isAuthenticated ? "guest" : user?.role === "vendor" ? "vendor" : "customer",
+      userRole: user?.role,
+      userEmail: user?.email,
+    });
+  }
+
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
@@ -31,18 +42,37 @@ export default function RootStackNavigator() {
     );
   }
 
+  // Determine which screen set to show based on auth state
+  const authState = !isAuthenticated ? "guest" : user?.role === "vendor" ? "vendor" : "customer";
+
+  // Navigation logic:
+  // - Authenticated vendors -> VendorTabNavigator (vendor dashboard)
+  // - Authenticated customers -> CustomerTabNavigator
+  // - Not authenticated -> Show Onboarding/Login screen first
   return (
-    <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
+    <Stack.Navigator
+      key={authState}  // Force re-render when auth state changes
+      screenOptions={{ ...screenOptions, headerShown: false }}
+    >
       {!isAuthenticated ? (
-        <Stack.Screen
-          name="Onboarding"
-          component={OnboardingScreen}
-          options={{ animationTypeForReplace: "pop" }}
-        />
+        // Not logged in - show login screen first
+        <>
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="CustomerMain" component={CustomerTabNavigator} />
+          <Stack.Screen name="VendorMain" component={VendorTabNavigator} />
+        </>
       ) : user?.role === "vendor" ? (
-        <Stack.Screen name="VendorMain" component={VendorTabNavigator} />
+        // Authenticated vendor - show vendor dashboard
+        <>
+          <Stack.Screen name="VendorMain" component={VendorTabNavigator} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        </>
       ) : (
-        <Stack.Screen name="CustomerMain" component={CustomerTabNavigator} />
+        // Authenticated customer - show customer app
+        <>
+          <Stack.Screen name="CustomerMain" component={CustomerTabNavigator} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        </>
       )}
     </Stack.Navigator>
   );

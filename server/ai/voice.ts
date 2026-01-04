@@ -1,15 +1,8 @@
 import type { Express, Request, Response } from "express";
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
-});
+import { generateText, transcribeAudio } from "./client";
 
 export function registerVoiceRoutes(app: Express): void {
+  // Transcribe audio using OpenAI Whisper
   app.post("/api/voice/transcribe", async (req: Request, res: Response) => {
     try {
       const { audioData, mimeType = "audio/webm" } = req.body;
@@ -18,27 +11,10 @@ export function registerVoiceRoutes(app: Express): void {
         return res.status(400).json({ error: "Audio data is required" });
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: audioData,
-                },
-              },
-              {
-                text: "Transcribe the audio exactly as spoken. Only output the transcription, nothing else.",
-              },
-            ],
-          },
-        ],
-      });
+      // Convert base64 to buffer
+      const audioBuffer = Buffer.from(audioData, "base64");
+      const transcription = await transcribeAudio(audioBuffer, mimeType);
 
-      const transcription = response.text || "";
       res.json({ transcription });
     } catch (error) {
       console.error("Error transcribing audio:", error);
@@ -46,6 +22,7 @@ export function registerVoiceRoutes(app: Express): void {
     }
   });
 
+  // Generate promo from description using OpenAI/Anthropic
   app.post("/api/voice/generate-promo", async (req: Request, res: Response) => {
     try {
       const { description, businessType, dealType } = req.body;
@@ -54,8 +31,7 @@ export function registerVoiceRoutes(app: Express): void {
         return res.status(400).json({ error: "Description is required" });
       }
 
-      const prompt = `You are a marketing expert for local restaurants and food businesses. 
-Based on this spoken description, create a professional promotional deal:
+      const prompt = `Based on this description, create a professional promotional deal:
 
 Description: "${description}"
 Business Type: ${businessType || "restaurant"}
@@ -68,17 +44,19 @@ Generate a JSON response with:
   "suggestedDiscount": "Suggested discount percentage or value"
 }
 
-Be creative, engaging, and make the offer sound irresistible.`;
+Be creative, engaging, and make the offer sound irresistible. Only return valid JSON.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      const result = await generateText(prompt, {
+        systemPrompt: "You are a marketing expert for local restaurants and food businesses. Always respond with valid JSON only.",
+        maxTokens: 256,
+        temperature: 0.8,
       });
 
-      const text = response.text || "{}";
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const promoData = jsonMatch ? JSON.parse(jsonMatch[0]) : { title: description, description: "", suggestedDiscount: "10%" };
-      
+      const jsonMatch = result.match(/\{[\s\S]*\}/);
+      const promoData = jsonMatch
+        ? JSON.parse(jsonMatch[0])
+        : { title: description, description: "", suggestedDiscount: "10%" };
+
       res.json(promoData);
     } catch (error) {
       console.error("Error generating promo:", error);
@@ -86,6 +64,7 @@ Be creative, engaging, and make the offer sound irresistible.`;
     }
   });
 
+  // Parse voice search query using OpenAI/Anthropic
   app.post("/api/voice/search-deals", async (req: Request, res: Response) => {
     try {
       const { query } = req.body;
@@ -108,15 +87,17 @@ Return JSON with:
 
 Only return valid JSON.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      const result = await generateText(prompt, {
+        systemPrompt: "You are a search query parser. Always respond with valid JSON only.",
+        maxTokens: 128,
+        temperature: 0.3,
       });
 
-      const text = response.text || "{}";
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const searchParams = jsonMatch ? JSON.parse(jsonMatch[0]) : { keywords: query.split(" ") };
-      
+      const jsonMatch = result.match(/\{[\s\S]*\}/);
+      const searchParams = jsonMatch
+        ? JSON.parse(jsonMatch[0])
+        : { keywords: query.split(" ") };
+
       res.json(searchParams);
     } catch (error) {
       console.error("Error parsing search:", error);

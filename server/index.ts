@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
@@ -17,30 +18,47 @@ function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
 
-    if (process.env.REPLIT_DEV_DOMAIN) {
-      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+    // Custom allowed origins from environment
+    if (process.env.ALLOWED_ORIGINS) {
+      process.env.ALLOWED_ORIGINS.split(",").forEach((origin) => {
+        origins.add(origin.trim());
+      });
     }
 
-    if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
-        origins.add(`https://${d.trim()}`);
-      });
+    // Default localhost origins for development
+    if (process.env.NODE_ENV !== "production") {
+      // Expo web dev server
+      origins.add("http://localhost:8081");
+      origins.add("http://127.0.0.1:8081");
+      origins.add("http://localhost:8082");
+      origins.add("http://127.0.0.1:8082");
+      // Backend server (for testing)
+      origins.add("http://localhost:5000");
+      origins.add("http://127.0.0.1:5000");
+      // Alternative ports
+      origins.add("http://localhost:3000");
+      origins.add("http://127.0.0.1:3000");
+      origins.add("http://localhost:19006");
+      origins.add("http://127.0.0.1:19006");
+      // LAN IP for mobile testing
+      origins.add("http://192.168.0.220:8081");
+      origins.add("http://192.168.0.220:5000");
     }
 
     const origin = req.header("origin");
 
+    // Allow the request origin if it's in our allowed list
     if (origin && origins.has(origin)) {
       res.header("Access-Control-Allow-Origin", origin);
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS",
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, x-user-id, X-User-Id");
       res.header("Access-Control-Allow-Credentials", "true");
+      res.header("Access-Control-Max-Age", "86400"); // Cache preflight for 24 hours
     }
 
+    // Handle preflight requests
     if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
+      return res.sendStatus(204);
     }
 
     next();
@@ -228,14 +246,10 @@ function setupErrorHandler(app: express.Application) {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`express server serving on port ${port}`);
-    },
-  );
+  // Use 0.0.0.0 to allow mobile devices to connect via LAN
+  const host = "0.0.0.0";
+
+  server.listen(port, host, () => {
+    log(`express server serving on http://${host}:${port}`);
+  });
 })();

@@ -12,6 +12,10 @@ export const Colors = {
   accent: accentYellow,
   success: successGreen,
   error: errorRed,
+  // Additional semantic colors
+  warning: "#F59E0B",
+  info: "#3B82F6",
+  textSecondary: "#9BA1A6",
   light: {
     text: "#2D3142",
     textSecondary: "#687076",
@@ -19,11 +23,13 @@ export const Colors = {
     tabIconDefault: "#687076",
     tabIconSelected: primaryOrange,
     link: primaryOrange,
+    background: "#FFFFFF",
     backgroundRoot: "#FFFFFF",
     backgroundDefault: "#F5F5F5",
     backgroundSecondary: "#EDEDED",
     backgroundTertiary: "#E0E0E0",
     border: "#E0E0E0",
+    card: "#FFFFFF",
     cardShadow: "rgba(0,0,0,0.08)",
   },
   dark: {
@@ -33,11 +39,13 @@ export const Colors = {
     tabIconDefault: "#9BA1A6",
     tabIconSelected: primaryOrange,
     link: primaryOrange,
+    background: "#1F2123",
     backgroundRoot: "#1F2123",
     backgroundDefault: "#2A2C2E",
     backgroundSecondary: "#353739",
     backgroundTertiary: "#404244",
     border: "#404244",
+    card: "#2A2C2E",
     cardShadow: "rgba(0,0,0,0.3)",
   },
 };
@@ -124,19 +132,32 @@ export const Fonts = Platform.select({
   },
 });
 
+// Platform-aware shadow styles
+// Uses boxShadow on web, native shadow props on iOS, elevation on Android
+const createShadow = (
+  offsetY: number,
+  blur: number,
+  opacity: number,
+  elevation: number
+) => {
+  if (Platform.OS === "web") {
+    return {
+      boxShadow: `0px ${offsetY}px ${blur}px rgba(0, 0, 0, ${opacity})`,
+    };
+  }
+  return {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: offsetY },
+    shadowOpacity: opacity,
+    shadowRadius: blur,
+    elevation,
+  };
+};
+
 export const Shadows = {
-  card: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  fab: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-  },
+  sm: createShadow(1, 4, 0.05, 2),
+  card: createShadow(2, 8, 0.08, 3),
+  fab: createShadow(4, 8, 0.15, 6),
+  lg: createShadow(4, 12, 0.12, 8),
+  xl: createShadow(8, 16, 0.15, 12),
 };

@@ -14,7 +14,13 @@ import PromotionsScreen from "@/screens/vendor/PromotionsScreen";
 import CustomersScreen from "@/screens/vendor/CustomersScreen";
 import ToolsScreen from "@/screens/vendor/ToolsScreen";
 import PricingScreen from "@/screens/vendor/PricingScreen";
+import MyListingScreen from "@/screens/vendor/MyListingScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
+import PreferencesScreen from "@/screens/PreferencesScreen";
+import HelpCenterScreen from "@/screens/HelpCenterScreen";
+import ContactScreen from "@/screens/ContactScreen";
+import PrivacyPolicyScreen from "@/screens/PrivacyPolicyScreen";
+import TermsOfServiceScreen from "@/screens/TermsOfServiceScreen";
 
 export type VendorStackParamList = {
   Dashboard: undefined;
@@ -22,7 +28,13 @@ export type VendorStackParamList = {
   Customers: undefined;
   Tools: undefined;
   Pricing: undefined;
+  MyListing: undefined;
   Profile: undefined;
+  Preferences: undefined;
+  HelpCenter: undefined;
+  Contact: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
 };
 
 export type VendorTabParamList = {
@@ -31,6 +43,7 @@ export type VendorTabParamList = {
   CustomersTab: undefined;
   ToolsTab: undefined;
   PricingTab: undefined;
+  MyListingTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -117,6 +130,22 @@ function PricingStack() {
   );
 }
 
+function MyListingStack() {
+  const screenOptions = useScreenOptions();
+
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen
+        name="MyListing"
+        component={MyListingScreen}
+        options={{
+          headerTitle: "My Listing",
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 function ProfileStack() {
   const screenOptions = useScreenOptions();
 
@@ -127,6 +156,41 @@ function ProfileStack() {
         component={ProfileScreen}
         options={{
           headerTitle: "Profile",
+        }}
+      />
+      <Stack.Screen
+        name="Preferences"
+        component={PreferencesScreen}
+        options={{
+          headerTitle: "Preferences",
+        }}
+      />
+      <Stack.Screen
+        name="HelpCenter"
+        component={HelpCenterScreen}
+        options={{
+          headerTitle: "Help Center",
+        }}
+      />
+      <Stack.Screen
+        name="Contact"
+        component={ContactScreen}
+        options={{
+          headerTitle: "Contact Us",
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          headerTitle: "Privacy Policy",
+        }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{
+          headerTitle: "Terms of Service",
         }}
       />
     </Stack.Navigator>
@@ -192,22 +256,12 @@ export default function VendorTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="ToolsTab"
-        component={ToolsStack}
+        name="MyListingTab"
+        component={MyListingStack}
         options={{
-          title: "Tools",
+          title: "My Listing",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="grid" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="PricingTab"
-        component={PricingStack}
-        options={{
-          title: "Pricing",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="credit-card" size={size} color={color} />
+            <Feather name="map-pin" size={size} color={color} />
           ),
         }}
       />
@@ -219,6 +273,23 @@ export default function VendorTabNavigator() {
           tabBarIcon: ({ color, size }) => (
             <Feather name="user" size={size} color={color} />
           ),
+        }}
+      />
+      {/* Hidden tabs - accessible via navigation but not shown in tab bar */}
+      <Tab.Screen
+        name="ToolsTab"
+        component={ToolsStack}
+        options={{
+          tabBarButton: () => null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
+      <Tab.Screen
+        name="PricingTab"
+        component={PricingStack}
+        options={{
+          tabBarButton: () => null,
+          tabBarStyle: { display: "none" },
         }}
       />
     </Tab.Navigator>

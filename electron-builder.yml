@@ -1,0 +1,81 @@
+appId: com.smartdealsiq.desktop
+productName: SmartDealsIQ
+copyright: Copyright © 2024 SmartDealsIQ
+
+directories:
+  output: release
+  buildResources: assets
+
+files:
+  - electron/**/*
+  - dist/**/*
+  - assets/**/*
+  - package.json
+
+mac:
+  category: public.app-category.shopping
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: assets/icon.icns
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+dmg:
+  backgroundColor: "#1F2123"
+  iconSize: 100
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+    - target: portable
+  icon: assets/icon.ico
+  publisherName: SmartDealsIQ
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  installerHeaderIcon: assets/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: SmartDealsIQ
+
+linux:
+  target:
+    - target: AppImage
+    - target: deb
+    - target: rpm
+  category: Shopping
+  icon: assets/icons
+
+publish:
+  provider: github
+  owner: smartdealsiq
+  repo: smartdealsiq-desktop
+  releaseType: release
+
+extraMetadata:
+  main: electron/main.js

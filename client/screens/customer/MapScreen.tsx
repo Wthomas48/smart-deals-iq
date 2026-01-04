@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, Pressable, Platform, Dimensions, Image } from "react-native";
+import { View, StyleSheet, Pressable, Platform, Dimensions, Image, Linking } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -13,19 +13,25 @@ import { Spacer } from "@/components/Spacer";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useData, Vendor } from "@/lib/data-context";
+import { useVendorListing, PublicVendorListing } from "@/lib/vendor-listing-context";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { CustomerStackParamList } from "@/navigation/CustomerTabNavigator";
 
+// Conditionally import react-native-maps for native platforms
 let MapView: any = null;
 let Marker: any = null;
 let PROVIDER_GOOGLE: any = null;
 
 if (Platform.OS !== "web") {
-  const Maps = require("react-native-maps");
-  MapView = Maps.default;
-  Marker = Maps.Marker;
-  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+  try {
+    const Maps = require("react-native-maps");
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+    PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+  } catch (e) {
+    if (__DEV__) console.log("react-native-maps not available");
+  }
 }
 
 type Region = {
@@ -41,18 +47,32 @@ const { width } = Dimensions.get("window");
 
 const RADIUS_OPTIONS = [1, 5, 10];
 
+// Category labels for display
+const CATEGORY_LABELS: Record<string, string> = {
+  food_truck: "Food Truck",
+  restaurant: "Restaurant",
+  vendor: "Vendor/Cart",
+};
+
 export default function MapScreen() {
   const { theme, isDark } = useTheme();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { vendors, deals, isFavorite } = useData();
+  const { publicVendors, fetchPublicVendors } = useVendorListing();
   const mapRef = useRef<any>(null);
 
   const [permission, requestPermission] = Location.useForegroundPermissions();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedFreeVendor, setSelectedFreeVendor] = useState<PublicVendorListing | null>(null);
   const [radiusIndex, setRadiusIndex] = useState(1);
+
+  // Fetch free vendors on mount
+  useEffect(() => {
+    fetchPublicVendors();
+  }, []);
 
   useEffect(() => {
     if (permission?.granted) {
@@ -77,6 +97,7 @@ export default function MapScreen() {
   const handleMarkerPress = (vendor: Vendor) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedVendor(vendor);
+    setSelectedFreeVendor(null);
     mapRef.current?.animateToRegion({
       latitude: vendor.latitude,
       longitude: vendor.longitude,
@@ -85,8 +106,42 @@ export default function MapScreen() {
     });
   };
 
+  const handleFreeVendorMarkerPress = (vendor: PublicVendorListing) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedFreeVendor(vendor);
+    setSelectedVendor(null);
+    mapRef.current?.animateToRegion({
+      latitude: vendor.locationLat,
+      longitude: vendor.locationLng,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
+  };
+
   const getVendorDeals = (vendorId: string) => {
     return deals.filter((d) => d.vendorId === vendorId);
+  };
+
+  const formatLastUpdate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  const openDirections = (lat: number, lng: number, name: string) => {
+    const url = Platform.select({
+      ios: `maps://app?daddr=${lat},${lng}&q=${encodeURIComponent(name)}`,
+      android: `google.navigation:q=${lat},${lng}`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+    });
+    Linking.openURL(url);
   };
 
   if (!permission) {
@@ -110,7 +165,7 @@ export default function MapScreen() {
               Enable Location
             </ThemedText>
             <ThemedText type="body" secondary style={styles.permissionText}>
-              SmartDealsIQ needs your location to show nearby restaurants and local businesses
+              SmartDealsIQ™ needs your location to show nearby restaurants and local businesses
             </ThemedText>
             <Spacer size="xl" />
             <Button onPress={requestPermission}>Enable Location</Button>
@@ -180,8 +235,12 @@ export default function MapScreen() {
         initialRegion={initialRegion}
         showsUserLocation
         showsMyLocationButton={false}
-        onPress={() => setSelectedVendor(null)}
+        onPress={() => {
+          setSelectedVendor(null);
+          setSelectedFreeVendor(null);
+        }}
       >
+        {/* Existing mock vendors (with deals - colored pins) */}
         {vendors.map((vendor) => (
           <Marker
             key={vendor.id}
@@ -197,6 +256,27 @@ export default function MapScreen() {
                 name="map-pin"
                 size={16}
                 color={vendor.isOpen ? "#fff" : theme.textSecondary}
+              />
+            </View>
+          </Marker>
+        ))}
+
+        {/* Free tier vendor listings (neutral gray pins) */}
+        {publicVendors.map((vendor) => (
+          <Marker
+            key={`free-${vendor.id}`}
+            coordinate={{ latitude: vendor.locationLat, longitude: vendor.locationLng }}
+            onPress={() => handleFreeVendorMarkerPress(vendor)}
+          >
+            <View style={[
+              styles.freeVendorMarker,
+              { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+              selectedFreeVendor?.id === vendor.id && styles.markerSelected,
+            ]}>
+              <Feather
+                name="map-pin"
+                size={16}
+                color={theme.textSecondary}
               />
             </View>
           </Marker>
@@ -228,7 +308,7 @@ export default function MapScreen() {
       </View>
 
       <Pressable
-        style={[styles.locationButton, { backgroundColor: theme.backgroundDefault, bottom: tabBarHeight + (selectedVendor ? 180 : Spacing.xl) }]}
+        style={[styles.locationButton, { backgroundColor: theme.backgroundDefault, bottom: tabBarHeight + ((selectedVendor || selectedFreeVendor) ? 180 : Spacing.xl) }]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           if (userLocation) {
@@ -244,6 +324,7 @@ export default function MapScreen() {
         <Feather name="navigation" size={20} color={Colors.primary} />
       </Pressable>
 
+      {/* Selected vendor with deals (full info) */}
       {selectedVendor ? (
         <View style={[styles.vendorSheet, { paddingBottom: tabBarHeight + Spacing.lg }]}>
           <Card
@@ -286,6 +367,53 @@ export default function MapScreen() {
           </Card>
         </View>
       ) : null}
+
+      {/* Selected free vendor (simplified info) */}
+      {selectedFreeVendor ? (
+        <View style={[styles.vendorSheet, { paddingBottom: tabBarHeight + Spacing.lg }]}>
+          <Card style={styles.vendorCard}>
+            <View style={styles.freeVendorCardContent}>
+              <View style={[styles.freeVendorIcon, { backgroundColor: theme.backgroundTertiary }]}>
+                <Feather name="map-pin" size={24} color={theme.textSecondary} />
+              </View>
+              <View style={styles.vendorInfo}>
+                <ThemedText type="h4" numberOfLines={1}>
+                  {selectedFreeVendor.businessName}
+                </ThemedText>
+                <View style={styles.vendorMeta}>
+                  <View style={[styles.categoryBadge, { backgroundColor: theme.backgroundTertiary }]}>
+                    <ThemedText type="caption" secondary>
+                      {CATEGORY_LABELS[selectedFreeVendor.category] || selectedFreeVendor.category}
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="caption" secondary style={{ marginLeft: Spacing.sm }}>
+                    Updated {formatLastUpdate(selectedFreeVendor.lastLocationUpdate)}
+                  </ThemedText>
+                </View>
+                {selectedFreeVendor.description ? (
+                  <ThemedText type="small" secondary numberOfLines={2} style={{ marginTop: Spacing.xs }}>
+                    {selectedFreeVendor.description}
+                  </ThemedText>
+                ) : null}
+                <Spacer size="sm" />
+                <Pressable
+                  style={[styles.directionsButton, { backgroundColor: Colors.primary }]}
+                  onPress={() => openDirections(
+                    selectedFreeVendor.locationLat,
+                    selectedFreeVendor.locationLng,
+                    selectedFreeVendor.businessName
+                  )}
+                >
+                  <Feather name="navigation" size={14} color="#fff" />
+                  <ThemedText type="small" style={{ color: "#fff", marginLeft: 6 }}>
+                    Get Directions
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </View>
+          </Card>
+        </View>
+      ) : null}
     </ThemedView>
   );
 }
@@ -321,6 +449,15 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+    ...Shadows.card,
+  },
+  freeVendorMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
     ...Shadows.card,
   },
   markerSelected: {
@@ -406,5 +543,30 @@ const styles = StyleSheet.create({
   },
   vendorCardWeb: {
     padding: Spacing.md,
+  },
+  freeVendorCardContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  freeVendorIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.sm,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  directionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    alignSelf: "flex-start",
   },
 });

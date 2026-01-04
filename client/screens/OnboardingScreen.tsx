@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, ActivityIndicator, Image, KeyboardAvoidingView, Platform } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, ActivityIndicator, Image, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
@@ -11,18 +12,17 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
-type AuthMode = "welcome" | "login" | "signup" | "role";
+type AuthMode = "choose-role" | "customer-login" | "customer-signup" | "vendor-login" | "vendor-signup";
 
 export default function OnboardingScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { login, signup } = useAuth();
+  const { login, loginAsVendor, signup } = useAuth();
 
-  const [mode, setMode] = useState<AuthMode>("welcome");
+  const [mode, setMode] = useState<AuthMode>("choose-role");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -35,59 +35,149 @@ export default function OnboardingScreen() {
 
   const switchMode = (newMode: AuthMode) => {
     clearForm();
-    if (newMode === "welcome") {
-      setSelectedRole(null);
-    }
     setMode(newMode);
   };
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError("Please fill in all fields");
+  const triggerHaptic = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  };
+
+  // Helper to get user-friendly error message
+  const getErrorMessage = (err: any): string => {
+    const message = err?.message?.toLowerCase() || "";
+
+    if (message.includes("network") || message.includes("timeout") || message.includes("connection")) {
+      return "Unable to connect. Please check your internet connection.";
+    }
+    if (message.includes("invalid") || message.includes("credentials") || message.includes("password")) {
+      return "Invalid email or password. Please try again.";
+    }
+    if (message.includes("not found") || message.includes("no user")) {
+      return "Account not found. Please sign up first.";
+    }
+    if (message.includes("already exists") || message.includes("duplicate")) {
+      return "An account with this email already exists.";
+    }
+    return err?.message || "Something went wrong. Please try again.";
+  };
+
+  // Customer Login
+  const handleCustomerLogin = async () => {
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address");
       return;
     }
+    if (!password) {
+      setError("Please enter your password");
+      return;
+    }
+    triggerHaptic();
     setIsLoading(true);
     setError("");
     try {
       await login(email, password);
-    } catch (err) {
-      setError("Invalid credentials. Please sign up first.");
+    } catch (err: any) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignup = async () => {
+  // Customer Signup
+  const handleCustomerSignup = async () => {
     if (!name || !email || !password) {
       setError("Please fill in all fields");
       return;
     }
-    if (!selectedRole) {
-      setError("Please select how you'll use the app");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
+    triggerHaptic();
     setIsLoading(true);
     setError("");
     try {
-      await signup(name, email, password, selectedRole);
-    } catch (err) {
-      setError("Failed to create account");
+      // Split name into first/last and create username from email
+      const nameParts = name.trim().split(" ");
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(" ") || undefined;
+      const username = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      await signup({
+        email,
+        username,
+        password,
+        role: "customer",
+        firstName,
+        lastName,
+      });
+    } catch (err: any) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleContinue = () => {
+  // Vendor Login
+  const handleVendorLogin = async () => {
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password");
+      return;
+    }
+    triggerHaptic();
+    setIsLoading(true);
+    setError("");
+    try {
+      await loginAsVendor(email, password);
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Vendor Signup
+  const handleVendorSignup = async () => {
     if (!name || !email || !password) {
       setError("Please fill in all fields");
       return;
     }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    triggerHaptic();
+    setIsLoading(true);
     setError("");
-    setMode("role");
+    try {
+      // Use business name as username (cleaned up)
+      const username = name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
+
+      await signup({
+        email,
+        username: username || email.split("@")[0],
+        password,
+        role: "vendor",
+        firstName: name, // Store business name in firstName for vendors
+      });
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const renderWelcome = () => (
-    <View style={styles.welcomeContainer}>
+  // ============================================
+  // ROLE SELECTION SCREEN
+  // ============================================
+  const renderChooseRole = () => (
+    <View style={[styles.container, { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl }]}>
       <View style={styles.logoContainer}>
         <Image
           source={require("../../assets/images/icon.png")}
@@ -95,36 +185,70 @@ export default function OnboardingScreen() {
           resizeMode="contain"
         />
       </View>
-      <ThemedText type="h1" style={styles.title}>SmartDealsIQ</ThemedText>
+      <ThemedText type="h1" style={styles.title}>SmartDealsIQ™</ThemedText>
       <ThemedText type="body" secondary style={styles.subtitle}>
-        Discover amazing deals from restaurants and local food businesses near you
+        Discover amazing deals from local food businesses
       </ThemedText>
       <Spacer size="3xl" />
-      <Button onPress={() => switchMode("signup")} style={styles.primaryButton}>
-        Get Started
-      </Button>
-      <Spacer size="md" />
-      <Pressable onPress={() => switchMode("login")} style={styles.secondaryButton}>
-        <ThemedText type="body" style={{ color: Colors.primary }}>
-          Already have an account? Log in
-        </ThemedText>
+
+      <ThemedText type="h3" style={styles.chooseText}>How will you use the app?</ThemedText>
+      <Spacer size="xl" />
+
+      {/* Customer Option */}
+      <Pressable
+        style={[styles.roleCard, { backgroundColor: theme.backgroundDefault, borderColor: Colors.secondary }]}
+        onPress={() => switchMode("customer-login")}
+      >
+        <View style={[styles.roleIcon, { backgroundColor: Colors.secondary + "20" }]}>
+          <Feather name="shopping-bag" size={32} color={Colors.secondary} />
+        </View>
+        <View style={styles.roleContent}>
+          <ThemedText type="h3">I'm a Customer</ThemedText>
+          <ThemedText type="small" secondary>Find deals from food vendors near me</ThemedText>
+        </View>
+        <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+      </Pressable>
+
+      <Spacer size="lg" />
+
+      {/* Vendor Option */}
+      <Pressable
+        style={[styles.roleCard, { backgroundColor: theme.backgroundDefault, borderColor: Colors.primary }]}
+        onPress={() => switchMode("vendor-login")}
+      >
+        <View style={[styles.roleIcon, { backgroundColor: Colors.primary + "20" }]}>
+          <Feather name="briefcase" size={32} color={Colors.primary} />
+        </View>
+        <View style={styles.roleContent}>
+          <ThemedText type="h3">I'm a Vendor</ThemedText>
+          <ThemedText type="small" secondary>Manage my business and post deals</ThemedText>
+        </View>
+        <Feather name="chevron-right" size={24} color={theme.textSecondary} />
       </Pressable>
     </View>
   );
 
-  const renderLogin = () => (
+  // ============================================
+  // CUSTOMER LOGIN SCREEN
+  // ============================================
+  const renderCustomerLogin = () => (
     <KeyboardAwareScrollViewCompat
       contentContainerStyle={[
         styles.formContainer,
-        { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl },
+        { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
       ]}
     >
-      <Pressable onPress={() => switchMode("welcome")} style={styles.backButton}>
+      <Pressable onPress={() => switchMode("choose-role")} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={theme.text} />
       </Pressable>
-      <Spacer size="xl" />
-      <ThemedText type="h2">Welcome back</ThemedText>
-      <ThemedText type="body" secondary>Log in to continue</ThemedText>
+      <Spacer size="lg" />
+
+      <View style={[styles.headerIcon, { backgroundColor: Colors.secondary + '20' }]}>
+        <Feather name="shopping-bag" size={32} color={Colors.secondary} />
+      </View>
+      <Spacer size="lg" />
+      <ThemedText type="h2">Customer Sign In</ThemedText>
+      <ThemedText type="body" secondary>Welcome back! Sign in to find deals</ThemedText>
       <Spacer size="2xl" />
 
       <TextInput
@@ -135,6 +259,7 @@ export default function OnboardingScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoComplete="email"
       />
       <Spacer size="md" />
       <TextInput
@@ -144,6 +269,7 @@ export default function OnboardingScreen() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        autoComplete="password"
       />
 
       {error ? (
@@ -154,39 +280,48 @@ export default function OnboardingScreen() {
       ) : null}
 
       <Spacer size="2xl" />
-      <Button onPress={handleLogin} disabled={isLoading}>
-        {isLoading ? <ActivityIndicator color="#fff" /> : "Log In"}
+      <Button onPress={handleCustomerLogin} disabled={isLoading}>
+        {isLoading ? <ActivityIndicator color="#fff" /> : "Sign In"}
       </Button>
       <Spacer size="lg" />
-      <Pressable onPress={() => switchMode("signup")}>
-        <ThemedText type="small" style={{ color: Colors.primary, textAlign: "center" }}>
-          Don't have an account? Sign up
+      <Pressable onPress={() => switchMode("customer-signup")}>
+        <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
+          New customer? Create an account
         </ThemedText>
       </Pressable>
     </KeyboardAwareScrollViewCompat>
   );
 
-  const renderSignup = () => (
+  // ============================================
+  // CUSTOMER SIGNUP SCREEN
+  // ============================================
+  const renderCustomerSignup = () => (
     <KeyboardAwareScrollViewCompat
       contentContainerStyle={[
         styles.formContainer,
-        { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl },
+        { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
       ]}
     >
-      <Pressable onPress={() => switchMode("welcome")} style={styles.backButton}>
+      <Pressable onPress={() => switchMode("customer-login")} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={theme.text} />
       </Pressable>
-      <Spacer size="xl" />
-      <ThemedText type="h2">Create account</ThemedText>
-      <ThemedText type="body" secondary>Join SmartDealsIQ today</ThemedText>
+      <Spacer size="lg" />
+
+      <View style={[styles.headerIcon, { backgroundColor: Colors.secondary + '20' }]}>
+        <Feather name="shopping-bag" size={32} color={Colors.secondary} />
+      </View>
+      <Spacer size="lg" />
+      <ThemedText type="h2">Create Customer Account</ThemedText>
+      <ThemedText type="body" secondary>Join SmartDealsIQ™ to find great deals</ThemedText>
       <Spacer size="2xl" />
 
       <TextInput
         style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
-        placeholder="Full name"
+        placeholder="Full Name"
         placeholderTextColor={theme.textSecondary}
         value={name}
         onChangeText={setName}
+        autoComplete="name"
       />
       <Spacer size="md" />
       <TextInput
@@ -197,6 +332,7 @@ export default function OnboardingScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoComplete="email"
       />
       <Spacer size="md" />
       <TextInput
@@ -206,6 +342,7 @@ export default function OnboardingScreen() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        autoComplete="new-password"
       />
 
       {error ? (
@@ -216,67 +353,61 @@ export default function OnboardingScreen() {
       ) : null}
 
       <Spacer size="2xl" />
-      <Button onPress={handleContinue}>Continue</Button>
+      <Button onPress={handleCustomerSignup} disabled={isLoading}>
+        {isLoading ? <ActivityIndicator color="#fff" /> : "Create Account"}
+      </Button>
       <Spacer size="lg" />
-      <Pressable onPress={() => switchMode("login")}>
-        <ThemedText type="small" style={{ color: Colors.primary, textAlign: "center" }}>
-          Already have an account? Log in
+      <Pressable onPress={() => switchMode("customer-login")}>
+        <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
+          Already have an account? Sign in
         </ThemedText>
       </Pressable>
     </KeyboardAwareScrollViewCompat>
   );
 
-  const renderRoleSelection = () => (
-    <View style={[styles.formContainer, { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl }]}>
-      <Pressable onPress={() => switchMode("signup")} style={styles.backButton}>
+  // ============================================
+  // VENDOR LOGIN SCREEN
+  // ============================================
+  const renderVendorLogin = () => (
+    <KeyboardAwareScrollViewCompat
+      contentContainerStyle={[
+        styles.formContainer,
+        { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
+      ]}
+    >
+      <Pressable onPress={() => switchMode("choose-role")} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={theme.text} />
       </Pressable>
-      <Spacer size="xl" />
-      <ThemedText type="h2">How will you use SmartDealsIQ?</ThemedText>
-      <ThemedText type="body" secondary>Select your role to get started</ThemedText>
-      <Spacer size="3xl" />
+      <Spacer size="lg" />
 
-      <Pressable
-        style={[
-          styles.roleCard,
-          { backgroundColor: theme.backgroundDefault, borderColor: selectedRole === "customer" ? Colors.primary : theme.border },
-          selectedRole === "customer" && styles.roleCardSelected,
-        ]}
-        onPress={() => setSelectedRole("customer")}
-      >
-        <View style={[styles.roleIcon, { backgroundColor: Colors.secondary + "20" }]}>
-          <Feather name="search" size={28} color={Colors.secondary} />
-        </View>
-        <View style={styles.roleContent}>
-          <ThemedText type="h4">Customer</ThemedText>
-          <ThemedText type="small" secondary>Discover deals from food vendors near you</ThemedText>
-        </View>
-        {selectedRole === "customer" ? (
-          <Feather name="check-circle" size={24} color={Colors.primary} />
-        ) : null}
-      </Pressable>
+      <View style={[styles.headerIcon, { backgroundColor: Colors.primary + '20' }]}>
+        <Feather name="briefcase" size={32} color={Colors.primary} />
+      </View>
+      <Spacer size="lg" />
+      <ThemedText type="h2">Vendor Sign In</ThemedText>
+      <ThemedText type="body" secondary>Manage your business and deals</ThemedText>
+      <Spacer size="2xl" />
 
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        placeholder="Email"
+        placeholderTextColor={theme.textSecondary}
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+      />
       <Spacer size="md" />
-
-      <Pressable
-        style={[
-          styles.roleCard,
-          { backgroundColor: theme.backgroundDefault, borderColor: selectedRole === "vendor" ? Colors.primary : theme.border },
-          selectedRole === "vendor" && styles.roleCardSelected,
-        ]}
-        onPress={() => setSelectedRole("vendor")}
-      >
-        <View style={[styles.roleIcon, { backgroundColor: Colors.primary + "20" }]}>
-          <Feather name="truck" size={28} color={Colors.primary} />
-        </View>
-        <View style={styles.roleContent}>
-          <ThemedText type="h4">Vendor</ThemedText>
-          <ThemedText type="small" secondary>Manage your business and promote deals</ThemedText>
-        </View>
-        {selectedRole === "vendor" ? (
-          <Feather name="check-circle" size={24} color={Colors.primary} />
-        ) : null}
-      </Pressable>
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        placeholder="Password"
+        placeholderTextColor={theme.textSecondary}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoComplete="password"
+      />
 
       {error ? (
         <>
@@ -285,39 +416,118 @@ export default function OnboardingScreen() {
         </>
       ) : null}
 
-      <View style={styles.spacer} />
-      <Button onPress={handleSignup} disabled={isLoading || !selectedRole}>
-        {isLoading ? <ActivityIndicator color="#fff" /> : "Complete Setup"}
+      <Spacer size="2xl" />
+      <Button onPress={handleVendorLogin} disabled={isLoading}>
+        {isLoading ? <ActivityIndicator color="#fff" /> : "Sign In"}
       </Button>
-    </View>
+      <Spacer size="lg" />
+      <Pressable onPress={() => switchMode("vendor-signup")}>
+        <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
+          New vendor? Create an account
+        </ThemedText>
+      </Pressable>
+    </KeyboardAwareScrollViewCompat>
+  );
+
+  // ============================================
+  // VENDOR SIGNUP SCREEN
+  // ============================================
+  const renderVendorSignup = () => (
+    <KeyboardAwareScrollViewCompat
+      contentContainerStyle={[
+        styles.formContainer,
+        { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
+      ]}
+    >
+      <Pressable onPress={() => switchMode("vendor-login")} style={styles.backButton}>
+        <Feather name="arrow-left" size={24} color={theme.text} />
+      </Pressable>
+      <Spacer size="lg" />
+
+      <View style={[styles.headerIcon, { backgroundColor: Colors.primary + '20' }]}>
+        <Feather name="briefcase" size={32} color={Colors.primary} />
+      </View>
+      <Spacer size="lg" />
+      <ThemedText type="h2">Create Vendor Account</ThemedText>
+      <ThemedText type="body" secondary>Set up your business on SmartDealsIQ™</ThemedText>
+      <Spacer size="2xl" />
+
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        placeholder="Business Name"
+        placeholderTextColor={theme.textSecondary}
+        value={name}
+        onChangeText={setName}
+        autoComplete="name"
+      />
+      <Spacer size="md" />
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        placeholder="Email"
+        placeholderTextColor={theme.textSecondary}
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+      />
+      <Spacer size="md" />
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        placeholder="Password"
+        placeholderTextColor={theme.textSecondary}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoComplete="new-password"
+      />
+
+      {error ? (
+        <>
+          <Spacer size="md" />
+          <ThemedText type="small" style={{ color: Colors.error }}>{error}</ThemedText>
+        </>
+      ) : null}
+
+      <Spacer size="2xl" />
+      <Button onPress={handleVendorSignup} disabled={isLoading}>
+        {isLoading ? <ActivityIndicator color="#fff" /> : "Create Vendor Account"}
+      </Button>
+      <Spacer size="lg" />
+      <Pressable onPress={() => switchMode("vendor-login")}>
+        <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
+          Already have an account? Sign in
+        </ThemedText>
+      </Pressable>
+    </KeyboardAwareScrollViewCompat>
   );
 
   return (
-    <ThemedView style={styles.container}>
-      {mode === "welcome" && renderWelcome()}
-      {mode === "login" && renderLogin()}
-      {mode === "signup" && renderSignup()}
-      {mode === "role" && renderRoleSelection()}
+    <ThemedView style={styles.mainContainer}>
+      {mode === "choose-role" && renderChooseRole()}
+      {mode === "customer-login" && renderCustomerLogin()}
+      {mode === "customer-signup" && renderCustomerSignup()}
+      {mode === "vendor-login" && renderVendorLogin()}
+      {mode === "vendor-signup" && renderVendorSignup()}
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
   },
-  welcomeContainer: {
+  container: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: Spacing.xl,
   },
   logoContainer: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
     borderRadius: BorderRadius["2xl"],
     overflow: "hidden",
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   logo: {
     width: "100%",
@@ -330,27 +540,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: Spacing.sm,
   },
-  primaryButton: {
-    width: "100%",
-  },
-  secondaryButton: {
-    padding: Spacing.md,
-  },
-  formContainer: {
-    flex: 1,
-    paddingHorizontal: Spacing.xl,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-  },
-  input: {
-    height: Spacing.inputHeight,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.lg,
-    fontSize: 16,
-    borderWidth: 1,
+  chooseText: {
+    textAlign: "center",
   },
   roleCard: {
     flexDirection: "row",
@@ -358,22 +549,41 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
-  },
-  roleCardSelected: {
-    borderWidth: 2,
+    width: "100%",
   },
   roleIcon: {
-    width: 56,
-    height: 56,
+    width: 64,
+    height: 64,
     borderRadius: BorderRadius.md,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: Spacing.md,
+    marginRight: Spacing.lg,
   },
   roleContent: {
     flex: 1,
   },
-  spacer: {
-    flex: 1,
+  formContainer: {
+    flexGrow: 1,
+    paddingHorizontal: Spacing.xl,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+  },
+  headerIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+  },
+  input: {
+    height: Spacing.inputHeight,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.lg,
+    fontSize: 16,
+    borderWidth: 1,
   },
 });

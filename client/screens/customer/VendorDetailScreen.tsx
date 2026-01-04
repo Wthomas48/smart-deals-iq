@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Image, Pressable, Share, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Image, Pressable, Platform } from "react-native";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
@@ -7,6 +7,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Spacer } from "@/components/Spacer";
+import { ShareSheet } from "@/components/ShareSheet";
 import { useTheme } from "@/hooks/useTheme";
 import { useData } from "@/lib/data-context";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
@@ -28,6 +29,7 @@ export default function VendorDetailScreen() {
   const vendor = getVendorById(route.params.vendorId);
   const deals = getDealsByVendor(route.params.vendorId);
   const [activeTab, setActiveTab] = useState<TabType>("deals");
+  const [showShareSheet, setShowShareSheet] = useState(false);
 
   if (!vendor) {
     return (
@@ -50,14 +52,11 @@ export default function VendorDetailScreen() {
     }
   };
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: `Check out ${vendor.name} on SmartDealsIQ! They have ${deals.length} amazing deals right now.`,
-      });
-    } catch (error) {
-      console.error("Error sharing:", error);
+  const handleShare = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    setShowShareSheet(true);
   };
 
   const getTimeRemaining = (expiresAt: string) => {
@@ -264,6 +263,19 @@ export default function VendorDetailScreen() {
           ) : null}
         </View>
       </ScrollView>
+
+      {/* Share Sheet */}
+      <ShareSheet
+        visible={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        truckData={{
+          truckName: vendor.name,
+          location: vendor.address || vendor.city || undefined,
+          isOpen: vendor.isOpen,
+          cuisineType: vendor.cuisine,
+          deal: deals.length > 0 ? `${deals.length} deals available!` : undefined,
+        }}
+      />
     </ThemedView>
   );
 }
