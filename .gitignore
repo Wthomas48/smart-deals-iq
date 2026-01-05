@@ -75,6 +75,13 @@ ehthumbs.db
 # EAS
 .eas/
 
+# Google Play & App Store credentials (NEVER commit these!)
+google-play-service-account.json
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+
 # Coverage
 coverage/
 .nyc_output/
