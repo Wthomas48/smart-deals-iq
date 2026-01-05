@@ -575,6 +575,48 @@ export function registerAuthRoutes(app: Express) {
     res.json({ exists });
   });
 
+  // Reset password (for users who forgot their password)
+  // In production, this should send an email with a reset link
+  // For development/demo, we allow direct password reset
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { email, newPassword } = req.body;
+
+      if (!email || !newPassword) {
+        return res.status(400).json({ error: "Email and new password are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      // Find user by email
+      const user = Array.from(users.values()).find(
+        (u) => u.email.toLowerCase() === email.toLowerCase()
+      );
+
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        // But return success to prevent email enumeration attacks
+        console.log(`[Auth] Password reset attempted for non-existent email: ${email}`);
+        return res.json({ message: "If an account with this email exists, the password has been reset." });
+      }
+
+      // Hash and update new password
+      user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+      user.updatedAt = new Date().toISOString();
+      users.set(user.id, user);
+      saveUsers();
+
+      console.log(`[Auth] Password reset successful for: ${email}`);
+
+      res.json({ message: "Password has been reset successfully. You can now sign in with your new password." });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ error: "Failed to reset password. Please try again." });
+    }
+  });
+
   // List all users (debug endpoint - remove in production)
   app.get("/api/auth/debug/users", (_req: Request, res: Response) => {
     if (process.env.NODE_ENV === "production") {

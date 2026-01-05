@@ -12,30 +12,41 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
-type AuthMode = "choose-role" | "customer-login" | "customer-signup" | "vendor-login" | "vendor-signup";
+type AuthMode = "choose-role" | "customer-login" | "customer-signup" | "vendor-login" | "vendor-signup" | "forgot-password";
 
 export default function OnboardingScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { login, loginAsVendor, signup } = useAuth();
+  const { login, loginAsVendor, signup, resetPassword } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("choose-role");
+  const [returnToMode, setReturnToMode] = useState<AuthMode>("choose-role");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const clearForm = () => {
     setName("");
     setEmail("");
     setPassword("");
+    setNewPassword("");
     setError("");
+    setSuccessMessage("");
   };
 
   const switchMode = (newMode: AuthMode) => {
     clearForm();
     setMode(newMode);
+  };
+
+  const goToForgotPassword = (fromMode: AuthMode) => {
+    setReturnToMode(fromMode);
+    clearForm();
+    setMode("forgot-password");
   };
 
   const triggerHaptic = () => {
@@ -173,6 +184,39 @@ export default function OnboardingScreen() {
     }
   };
 
+  // Password Reset
+  const handlePasswordReset = async () => {
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (!newPassword) {
+      setError("Please enter a new password");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    triggerHaptic();
+    setIsLoading(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const message = await resetPassword(email, newPassword);
+      setSuccessMessage(message);
+      // After 2 seconds, go back to the login screen
+      setTimeout(() => {
+        setPassword(newPassword); // Pre-fill the password for convenience
+        switchMode(returnToMode);
+      }, 2000);
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ============================================
   // ROLE SELECTION SCREEN
   // ============================================
@@ -283,6 +327,12 @@ export default function OnboardingScreen() {
       <Button onPress={handleCustomerLogin} disabled={isLoading}>
         {isLoading ? <ActivityIndicator color="#fff" /> : "Sign In"}
       </Button>
+      <Spacer size="md" />
+      <Pressable onPress={() => goToForgotPassword("customer-login")}>
+        <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
+          Forgot your password?
+        </ThemedText>
+      </Pressable>
       <Spacer size="lg" />
       <Pressable onPress={() => switchMode("customer-signup")}>
         <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
@@ -420,6 +470,12 @@ export default function OnboardingScreen() {
       <Button onPress={handleVendorLogin} disabled={isLoading}>
         {isLoading ? <ActivityIndicator color="#fff" /> : "Sign In"}
       </Button>
+      <Spacer size="md" />
+      <Pressable onPress={() => goToForgotPassword("vendor-login")}>
+        <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
+          Forgot your password?
+        </ThemedText>
+      </Pressable>
       <Spacer size="lg" />
       <Pressable onPress={() => switchMode("vendor-signup")}>
         <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
@@ -502,6 +558,79 @@ export default function OnboardingScreen() {
     </KeyboardAwareScrollViewCompat>
   );
 
+  // ============================================
+  // FORGOT PASSWORD SCREEN
+  // ============================================
+  const renderForgotPassword = () => (
+    <KeyboardAwareScrollViewCompat
+      contentContainerStyle={[
+        styles.formContainer,
+        { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
+      ]}
+    >
+      <Pressable onPress={() => switchMode(returnToMode)} style={styles.backButton}>
+        <Feather name="arrow-left" size={24} color={theme.text} />
+      </Pressable>
+      <Spacer size="lg" />
+
+      <View style={[styles.headerIcon, { backgroundColor: Colors.warning + '20' }]}>
+        <Feather name="lock" size={32} color={Colors.warning} />
+      </View>
+      <Spacer size="lg" />
+      <ThemedText type="h2">Reset Password</ThemedText>
+      <ThemedText type="body" secondary style={{ textAlign: 'center' }}>
+        Enter your email and a new password to reset your account
+      </ThemedText>
+      <Spacer size="2xl" />
+
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        placeholder="Email"
+        placeholderTextColor={theme.textSecondary}
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+      />
+      <Spacer size="md" />
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        placeholder="New Password"
+        placeholderTextColor={theme.textSecondary}
+        value={newPassword}
+        onChangeText={setNewPassword}
+        secureTextEntry
+        autoComplete="new-password"
+      />
+
+      {error ? (
+        <>
+          <Spacer size="md" />
+          <ThemedText type="small" style={{ color: Colors.error }}>{error}</ThemedText>
+        </>
+      ) : null}
+
+      {successMessage ? (
+        <>
+          <Spacer size="md" />
+          <ThemedText type="small" style={{ color: Colors.success }}>{successMessage}</ThemedText>
+        </>
+      ) : null}
+
+      <Spacer size="2xl" />
+      <Button onPress={handlePasswordReset} disabled={isLoading || !!successMessage}>
+        {isLoading ? <ActivityIndicator color="#fff" /> : "Reset Password"}
+      </Button>
+      <Spacer size="lg" />
+      <Pressable onPress={() => switchMode(returnToMode)}>
+        <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
+          Back to Sign In
+        </ThemedText>
+      </Pressable>
+    </KeyboardAwareScrollViewCompat>
+  );
+
   return (
     <ThemedView style={styles.mainContainer}>
       {mode === "choose-role" && renderChooseRole()}
@@ -509,6 +638,7 @@ export default function OnboardingScreen() {
       {mode === "customer-signup" && renderCustomerSignup()}
       {mode === "vendor-login" && renderVendorLogin()}
       {mode === "vendor-signup" && renderVendorSignup()}
+      {mode === "forgot-password" && renderForgotPassword()}
     </ThemedView>
   );
 }

@@ -74,6 +74,7 @@ interface AuthContextType {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   refreshAuth: () => Promise<boolean>;
+  resetPassword: (email: string, newPassword: string) => Promise<string>;
 }
 
 interface SignupData {
@@ -469,6 +470,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearAuth();
   };
 
+  const resetPassword = async (email: string, newPassword: string): Promise<string> => {
+    try {
+      const response = await authFetch("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to reset password");
+      }
+
+      return data.message;
+    } catch (error: any) {
+      if (error.message?.includes("timeout") || error.message?.includes("network")) {
+        throw new Error("Unable to connect to server. Please check your internet connection.");
+      }
+      throw error;
+    }
+  };
+
   const refreshAuth = useCallback(async (): Promise<boolean> => {
     if (!tokens?.refreshToken) return false;
     return refreshTokens(tokens.refreshToken);
@@ -489,6 +512,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         changePassword,
         deleteAccount,
         refreshAuth,
+        resetPassword,
       }}
     >
       {children}
