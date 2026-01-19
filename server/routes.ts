@@ -6,6 +6,11 @@ import { registerPaymentRoutes } from "./payments";
 import { registerAuthRoutes } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for Railway
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
   // Authentication routes (JWT)
   registerAuthRoutes(app);
 

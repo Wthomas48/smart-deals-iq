@@ -37,6 +37,7 @@ yarn-error.*
 .env.development
 .env.production
 .env.*.local
+.env.railway
 # Keep .env.example as a template
 
 # TypeScript

@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { getDb, closeDb, testConnection } from "./db";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -18,15 +19,33 @@ function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
 
-    // Custom allowed origins from environment
+    // Custom allowed origins from environment (comma-separated)
     if (process.env.ALLOWED_ORIGINS) {
       process.env.ALLOWED_ORIGINS.split(",").forEach((origin) => {
         origins.add(origin.trim());
       });
     }
 
-    // Default localhost origins for development
-    if (process.env.NODE_ENV !== "production") {
+    // Production domains
+    if (process.env.NODE_ENV === "production") {
+      // Add your production domains here
+      origins.add("https://smartdealsiq.com");
+      origins.add("https://www.smartdealsiq.com");
+      origins.add("https://api.smartdealsiq.com");
+      // Railway deployment URLs
+      if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+        origins.add(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+      }
+      // Allow custom CORS origins from environment
+      if (process.env.CORS_ORIGINS) {
+        process.env.CORS_ORIGINS.split(",").forEach((origin) => {
+          origins.add(origin.trim());
+        });
+      }
+      // Expo Go and mobile apps (EAS builds)
+      origins.add("exp://");
+    } else {
+      // Development localhost origins
       // Expo web dev server
       origins.add("http://localhost:8081");
       origins.add("http://127.0.0.1:8081");
@@ -40,7 +59,7 @@ function setupCors(app: express.Application) {
       origins.add("http://127.0.0.1:3000");
       origins.add("http://localhost:19006");
       origins.add("http://127.0.0.1:19006");
-      // LAN IP for mobile testing
+      // LAN IP for mobile testing (update as needed)
       origins.add("http://192.168.0.220:8081");
       origins.add("http://192.168.0.220:5000");
     }
@@ -48,8 +67,9 @@ function setupCors(app: express.Application) {
     const origin = req.header("origin");
 
     // Allow the request origin if it's in our allowed list
-    if (origin && origins.has(origin)) {
-      res.header("Access-Control-Allow-Origin", origin);
+    // Also allow requests without origin (mobile apps, Postman, etc.)
+    if (!origin || origins.has(origin)) {
+      res.header("Access-Control-Allow-Origin", origin || "*");
       res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
       res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, x-user-id, X-User-Id");
       res.header("Access-Control-Allow-Credentials", "true");
@@ -235,6 +255,30 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  // Initialize database connection
+  log("[Server] Initializing...");
+
+  // Test database connection (non-blocking in development)
+  const db = getDb();
+  if (db) {
+    const connected = await testConnection();
+    if (connected) {
+      log("[Server] Database connected successfully");
+    } else {
+      if (process.env.NODE_ENV === "production") {
+        log("[Server] ERROR: Database connection failed in production");
+        process.exit(1);
+      }
+      log("[Server] Database connection failed - running without DB");
+    }
+  } else {
+    if (process.env.NODE_ENV === "production") {
+      log("[Server] ERROR: DATABASE_URL required in production");
+      process.exit(1);
+    }
+    log("[Server] No database configured - using in-memory storage");
+  }
+
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
@@ -250,6 +294,28 @@ function setupErrorHandler(app: express.Application) {
   const host = "0.0.0.0";
 
   server.listen(port, host, () => {
-    log(`express server serving on http://${host}:${port}`);
+    log(`[Server] Running on http://${host}:${port}`);
+    log(`[Server] Environment: ${process.env.NODE_ENV || "development"}`);
   });
+
+  // Graceful shutdown handling
+  const shutdown = async (signal: string) => {
+    log(`\n[Server] ${signal} received, shutting down gracefully...`);
+
+    server.close(async () => {
+      log("[Server] HTTP server closed");
+      await closeDb();
+      log("[Server] Shutdown complete");
+      process.exit(0);
+    });
+
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      log("[Server] Forced shutdown after timeout");
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 })();

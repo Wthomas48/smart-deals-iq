@@ -1,0 +1,28 @@
+# Client-side code (not needed for backend)
+client/
+assets/
+static-build/
+
+# Electron
+electron/
+
+# Development files
+*.md
+*.log
+.git/
+.expo/
+.vscode/
+tmpclaude-*/
+
+# Test files
+__tests__/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Config files not needed in production
+eas.json
+electron-builder.yml
+eslint.config.js
+design_guidelines.md
