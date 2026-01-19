@@ -200,10 +200,21 @@ function configureExpoAndLanding(app: express.Application) {
     "templates",
     "landing-page.html",
   );
-  const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
-  const appName = getAppName();
 
-  log("Serving static Expo files with dynamic manifest routing");
+  // Check if template exists (won't exist in bundled production)
+  let landingPageTemplate: string | null = null;
+  try {
+    if (fs.existsSync(templatePath)) {
+      landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+      log("Serving static Expo files with dynamic manifest routing");
+    } else {
+      log("[Server] Landing page template not found - API-only mode");
+    }
+  } catch {
+    log("[Server] Landing page template not found - API-only mode");
+  }
+
+  const appName = getAppName();
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
@@ -219,7 +230,7 @@ function configureExpoAndLanding(app: express.Application) {
       return serveExpoManifest(platform, res);
     }
 
-    if (req.path === "/") {
+    if (req.path === "/" && landingPageTemplate) {
       return serveLandingPage({
         req,
         res,
@@ -228,11 +239,34 @@ function configureExpoAndLanding(app: express.Application) {
       });
     }
 
+    // If no landing page, return API info
+    if (req.path === "/") {
+      return res.json({
+        name: "SmartDealsIQ API",
+        version: "1.0.0",
+        status: "running",
+        endpoints: {
+          health: "/api/health",
+          auth: "/api/auth/*",
+          vendors: "/api/vendors/*",
+          payments: "/api/payments/*",
+        },
+      });
+    }
+
     next();
   });
 
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use(express.static(path.resolve(process.cwd(), "static-build")));
+  // Only serve static files if directories exist
+  const assetsPath = path.resolve(process.cwd(), "assets");
+  const staticBuildPath = path.resolve(process.cwd(), "static-build");
+
+  if (fs.existsSync(assetsPath)) {
+    app.use("/assets", express.static(assetsPath));
+  }
+  if (fs.existsSync(staticBuildPath)) {
+    app.use(express.static(staticBuildPath));
+  }
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
