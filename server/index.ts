@@ -23,61 +23,66 @@ function setupCors(app: express.Application) {
     // Custom allowed origins from environment (comma-separated)
     if (process.env.ALLOWED_ORIGINS) {
       process.env.ALLOWED_ORIGINS.split(",").forEach((origin) => {
-        origins.add(origin.trim());
+        const o = origin.trim();
+        if (o) origins.add(o);
       });
     }
 
-    // Production domains
     if (process.env.NODE_ENV === "production") {
-      // Add your production domains here
       origins.add("https://smartdealsiq.com");
       origins.add("https://www.smartdealsiq.com");
       origins.add("https://api.smartdealsiq.com");
-      // Railway deployment URLs
+
+      // Railway deployment URL
       if (process.env.RAILWAY_PUBLIC_DOMAIN) {
         origins.add(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
       }
-      // Allow custom CORS origins from environment
+
+      // Optional extra origins
       if (process.env.CORS_ORIGINS) {
         process.env.CORS_ORIGINS.split(",").forEach((origin) => {
-          origins.add(origin.trim());
+          const o = origin.trim();
+          if (o) origins.add(o);
         });
       }
-      // Expo Go and mobile apps (EAS builds)
+
+      // Expo scheme (does not match normal Origin headers, but harmless)
       origins.add("exp://");
     } else {
-      // Development localhost origins
-      // Expo web dev server
+      // Dev origins
       origins.add("http://localhost:8081");
       origins.add("http://127.0.0.1:8081");
       origins.add("http://localhost:8082");
       origins.add("http://127.0.0.1:8082");
-      // Backend server (for testing)
       origins.add("http://localhost:5000");
       origins.add("http://127.0.0.1:5000");
-      // Alternative ports
       origins.add("http://localhost:3000");
       origins.add("http://127.0.0.1:3000");
       origins.add("http://localhost:19006");
       origins.add("http://127.0.0.1:19006");
-      // LAN IP for mobile testing (update as needed)
+
+      // LAN (optional)
       origins.add("http://192.168.0.220:8081");
       origins.add("http://192.168.0.220:5000");
     }
 
     const origin = req.header("origin");
 
-    // Allow the request origin if it's in our allowed list
-    // Also allow requests without origin (mobile apps, Postman, etc.)
+    // Allow requests with no origin (server-to-server, Postman, mobile)
     if (!origin || origins.has(origin)) {
       res.header("Access-Control-Allow-Origin", origin || "*");
-      res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, x-user-id, X-User-Id");
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+      );
+      res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-Requested-With, x-user-id, X-User-Id",
+      );
       res.header("Access-Control-Allow-Credentials", "true");
-      res.header("Access-Control-Max-Age", "86400"); // Cache preflight for 24 hours
+      res.header("Access-Control-Max-Age", "86400");
     }
 
-    // Handle preflight requests
     if (req.method === "OPTIONS") {
       return res.sendStatus(204);
     }
@@ -87,6 +92,7 @@ function setupCors(app: express.Application) {
 }
 
 function setupBodyParsing(app: express.Application) {
+  // Capture raw body for Stripe signature verification (webhooks)
   app.use(
     express.json({
       verify: (req, _res, buf) => {
@@ -101,28 +107,25 @@ function setupBodyParsing(app: express.Application) {
 function setupRequestLogging(app: express.Application) {
   app.use((req, res, next) => {
     const start = Date.now();
-    const path = req.path;
-    let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
+    const reqPath = req.path;
+    let capturedJsonResponse: Record<string, unknown> | undefined;
 
-    const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
+    const originalResJson = res.json.bind(res);
+    res.json = ((bodyJson: any, ...args: any[]) => {
       capturedJsonResponse = bodyJson;
-      return originalResJson.apply(res, [bodyJson, ...args]);
-    };
+      return originalResJson(bodyJson, ...args);
+    }) as any;
 
     res.on("finish", () => {
-      if (!path.startsWith("/api")) return;
+      if (!reqPath.startsWith("/api")) return;
 
       const duration = Date.now() - start;
 
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
+      if (logLine.length > 120) logLine = logLine.slice(0, 119) + "…";
 
       log(logLine);
     });
@@ -143,17 +146,10 @@ function getAppName(): string {
 }
 
 function serveExpoManifest(platform: string, res: Response) {
-  const manifestPath = path.resolve(
-    process.cwd(),
-    "static-build",
-    platform,
-    "manifest.json",
-  );
+  const manifestPath = path.resolve(process.cwd(), "static-build", platform, "manifest.json");
 
   if (!fs.existsSync(manifestPath)) {
-    return res
-      .status(404)
-      .json({ error: `Manifest not found for platform: ${platform}` });
+    return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
   }
 
   res.setHeader("expo-protocol-version", "1");
@@ -182,9 +178,6 @@ function serveLandingPage({
   const baseUrl = `${protocol}://${host}`;
   const expsUrl = `${host}`;
 
-  log(`baseUrl`, baseUrl);
-  log(`expsUrl`, expsUrl);
-
   const html = landingPageTemplate
     .replace(/BASE_URL_PLACEHOLDER/g, baseUrl)
     .replace(/EXPS_URL_PLACEHOLDER/g, expsUrl)
@@ -201,7 +194,7 @@ function loadTemplate(name: string): string | null {
       return fs.readFileSync(templatePath, "utf-8");
     }
   } catch {
-    // Template not found
+    // ignore
   }
   return null;
 }
@@ -212,23 +205,23 @@ function configureExpoAndLanding(app: express.Application) {
   const paymentSuccessTemplate = loadTemplate("payment-success.html");
   const paymentCancelledTemplate = loadTemplate("payment-cancelled.html");
 
-  if (landingPageTemplate) {
-    log("Serving static Expo files with dynamic manifest routing");
-  } else {
-    log("[Server] Landing page template not found - API-only mode");
-  }
-
-  if (billingPageTemplate) {
-    log("[Server] Vendor billing page loaded");
-  }
-
   const appName = getAppName();
 
-  // Stripe Payment Links - update these with your actual Payment Link URLs
+  if (landingPageTemplate) {
+    log("[Server] Landing page template loaded");
+  } else {
+    log("[Server] Landing page template missing - API-only mode");
+  }
+
+  if (billingPageTemplate) log("[Server] Vendor billing page loaded");
+  if (paymentSuccessTemplate) log("[Server] Payment success template loaded");
+  if (paymentCancelledTemplate) log("[Server] Payment cancelled template loaded");
+
+  // Stripe Payment Links (if you use Payment Links)
   const PAYMENT_LINKS: Record<string, string> = {
-    boost_24h: process.env.STRIPE_LINK_BOOST_24H || "https://buy.stripe.com/5kQaEY7Rvamk2ko2NN",
-    boost_3d: process.env.STRIPE_LINK_BOOST_3D || "https://buy.stripe.com/5kQ5kE6Nrcusf7afAz",
-    boost_7d: process.env.STRIPE_LINK_BOOST_7D || "https://buy.stripe.com/4gM9AU5Jn5204swdsr",
+    boost_24h: process.env.STRIPE_LINK_BOOST_24H || "",
+    boost_3d: process.env.STRIPE_LINK_BOOST_3D || "",
+    boost_7d: process.env.STRIPE_LINK_BOOST_7D || "",
     pro_monthly: process.env.STRIPE_LINK_PRO_MONTHLY || "",
     pro_annual: process.env.STRIPE_LINK_PRO_ANNUAL || "",
     ad_30d: process.env.STRIPE_LINK_AD_30D || "",
@@ -236,14 +229,13 @@ function configureExpoAndLanding(app: express.Application) {
   };
 
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/api")) {
-      return next();
-    }
+    // Let API routes pass through
+    if (req.path.startsWith("/api")) return next();
 
     // Vendor billing page
     if (req.path === "/vendor/billing" && billingPageTemplate) {
       let html = billingPageTemplate;
-      // Replace payment link placeholders with actual Stripe Payment Links
+
       html = html.replace(/BOOST_24H_LINK/g, PAYMENT_LINKS.boost_24h || "#");
       html = html.replace(/BOOST_3D_LINK/g, PAYMENT_LINKS.boost_3d || "#");
       html = html.replace(/BOOST_7D_LINK/g, PAYMENT_LINKS.boost_7d || "#");
@@ -251,6 +243,7 @@ function configureExpoAndLanding(app: express.Application) {
       html = html.replace(/PRO_ANNUAL_LINK/g, PAYMENT_LINKS.pro_annual || "#");
       html = html.replace(/AD_30D_LINK/g, PAYMENT_LINKS.ad_30d || "#");
       html = html.replace(/AD_ANNUAL_LINK/g, PAYMENT_LINKS.ad_annual || "#");
+
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.status(200).send(html);
     }
@@ -267,78 +260,69 @@ function configureExpoAndLanding(app: express.Application) {
       return res.status(200).send(paymentCancelledTemplate);
     }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
-      return next();
-    }
+    // Expo manifest routing (only for / or /manifest)
+    if (req.path !== "/" && req.path !== "/manifest") return next();
 
     const platform = req.header("expo-platform");
     if (platform && (platform === "ios" || platform === "android")) {
       return serveExpoManifest(platform, res);
     }
 
+    // Root route
     if (req.path === "/" && landingPageTemplate) {
-      return serveLandingPage({
-        req,
-        res,
-        landingPageTemplate,
-        appName,
-      });
+      return serveLandingPage({ req, res, landingPageTemplate, appName });
     }
 
-    // If no landing page, return API info
+    // No landing template -> JSON info
     if (req.path === "/") {
-      return res.json({
+      return res.status(200).json({
+        ok: true,
         name: "SmartDealsIQ API",
-        version: "1.0.0",
         status: "running",
         endpoints: {
           health: "/api/health",
-          auth: "/api/auth/*",
-          vendors: "/api/vendors/*",
-          payments: "/api/payments/*",
+          webhook: "/api/billing/webhook",
         },
+        timestamp: new Date().toISOString(),
       });
     }
 
     next();
   });
 
-  // Only serve static files if directories exist
+  // Serve static only if dirs exist
   const assetsPath = path.resolve(process.cwd(), "assets");
   const staticBuildPath = path.resolve(process.cwd(), "static-build");
 
-  if (fs.existsSync(assetsPath)) {
-    app.use("/assets", express.static(assetsPath));
-  }
-  if (fs.existsSync(staticBuildPath)) {
-    app.use(express.static(staticBuildPath));
-  }
+  if (fs.existsSync(assetsPath)) app.use("/assets", express.static(assetsPath));
+  if (fs.existsSync(staticBuildPath)) app.use(express.static(staticBuildPath));
 
-  log("Expo routing: Checking expo-platform header on / and /manifest");
+  log("[Server] Expo routing configured");
+}
+
+function setupApiHealth(app: express.Application) {
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ ok: true });
+  });
 }
 
 function setupErrorHandler(app: express.Application) {
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    const error = err as {
-      status?: number;
-      statusCode?: number;
-      message?: string;
-    };
-
+    const error = err as { status?: number; statusCode?: number; message?: string };
     const status = error.status || error.statusCode || 500;
     const message = error.message || "Internal Server Error";
 
     res.status(status).json({ message });
 
+    // Re-throw so Railway logs show the stack
     throw err;
   });
 }
 
 (async () => {
-  // Initialize database connection
   log("[Server] Initializing...");
 
-  // Test database connection (non-blocking in development)
+  // DB init
   const db = getDb();
   if (db) {
     const connected = await testConnection();
@@ -364,6 +348,7 @@ function setupErrorHandler(app: express.Application) {
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
+  setupApiHealth(app);
 
   configureExpoAndLanding(app);
 
@@ -372,7 +357,6 @@ function setupErrorHandler(app: express.Application) {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  // Use 0.0.0.0 to allow mobile devices to connect via LAN
   const host = "0.0.0.0";
 
   server.listen(port, host, () => {
@@ -380,7 +364,6 @@ function setupErrorHandler(app: express.Application) {
     log(`[Server] Environment: ${process.env.NODE_ENV || "development"}`);
   });
 
-  // Graceful shutdown handling
   const shutdown = async (signal: string) => {
     log(`\n[Server] ${signal} received, shutting down gracefully...`);
 
@@ -391,7 +374,6 @@ function setupErrorHandler(app: express.Application) {
       process.exit(0);
     });
 
-    // Force exit after 10 seconds
     setTimeout(() => {
       log("[Server] Forced shutdown after timeout");
       process.exit(1);
@@ -400,4 +382,11 @@ function setupErrorHandler(app: express.Application) {
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
-})();
+})();     
+    
+
+
+
+ 
+
+
