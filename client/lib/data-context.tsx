@@ -8,9 +8,10 @@ import {
   FlashDeal,
 } from "./notification-service";
 
-// Food Categories
+// Business Categories (customer-facing filter)
 export type FoodCategory =
   | "All"
+  // Food & Beverage
   | "Mexican"
   | "Italian"
   | "Korean"
@@ -25,10 +26,46 @@ export type FoodCategory =
   | "Desserts"
   | "Coffee"
   | "Fast Food"
-  | "Food Truck";
+  | "Food Truck"
+  | "Bakery"
+  | "Bar & Lounge"
+  | "Juice & Smoothie"
+  | "Catering"
+  | "Delivery"
+  // Retail & Shopping
+  | "Boutique"
+  | "Jewelry"
+  | "Electronics"
+  | "Thrift & Vintage"
+  | "Smoke & Vape"
+  | "Pet Store"
+  // Health & Beauty
+  | "Salon"
+  | "Barbershop"
+  | "Nail & Spa"
+  | "Massage"
+  | "Gym & Fitness"
+  | "Tattoo & Piercing"
+  // Auto & Services
+  | "Auto Detailing"
+  | "Auto Repair"
+  | "Tire Shop"
+  // Home & Professional
+  | "Cleaning"
+  | "Handyman"
+  | "Landscaping"
+  | "Photography"
+  | "Printing"
+  // Entertainment
+  | "Nightclub"
+  | "Escape Room"
+  | "Event Venue"
+  // Cannabis
+  | "Dispensary";
 
 export const FOOD_CATEGORIES: { id: FoodCategory; label: string; icon: string; color: string }[] = [
   { id: "All", label: "All", icon: "grid", color: "#6366F1" },
+  // Food & Beverage
   { id: "Mexican", label: "Mexican", icon: "sun", color: "#F59E0B" },
   { id: "Italian", label: "Italian", icon: "coffee", color: "#EF4444" },
   { id: "Korean", label: "Korean", icon: "box", color: "#EC4899" },
@@ -44,6 +81,41 @@ export const FOOD_CATEGORIES: { id: FoodCategory; label: string; icon: string; c
   { id: "Coffee", label: "Coffee", icon: "coffee", color: "#78350F" },
   { id: "Fast Food", label: "Fast Food", icon: "truck", color: "#FACC15" },
   { id: "Food Truck", label: "Food Truck", icon: "truck", color: "#6366F1" },
+  { id: "Bakery", label: "Bakery", icon: "gift", color: "#D97706" },
+  { id: "Bar & Lounge", label: "Bar & Lounge", icon: "moon", color: "#7C3AED" },
+  { id: "Juice & Smoothie", label: "Juice", icon: "droplet", color: "#059669" },
+  { id: "Catering", label: "Catering", icon: "clipboard", color: "#0891B2" },
+  { id: "Delivery", label: "Delivery", icon: "package", color: "#4F46E5" },
+  // Retail & Shopping
+  { id: "Boutique", label: "Boutique", icon: "shopping-bag", color: "#DB2777" },
+  { id: "Jewelry", label: "Jewelry", icon: "star", color: "#CA8A04" },
+  { id: "Electronics", label: "Electronics", icon: "smartphone", color: "#2563EB" },
+  { id: "Thrift & Vintage", label: "Thrift", icon: "refresh-cw", color: "#65A30D" },
+  { id: "Smoke & Vape", label: "Smoke/Vape", icon: "wind", color: "#64748B" },
+  { id: "Pet Store", label: "Pets", icon: "heart", color: "#E11D48" },
+  // Health & Beauty
+  { id: "Salon", label: "Salon", icon: "scissors", color: "#C026D3" },
+  { id: "Barbershop", label: "Barber", icon: "scissors", color: "#1D4ED8" },
+  { id: "Nail & Spa", label: "Nail/Spa", icon: "feather", color: "#E879F9" },
+  { id: "Massage", label: "Massage", icon: "smile", color: "#14B8A6" },
+  { id: "Gym & Fitness", label: "Gym", icon: "activity", color: "#EF4444" },
+  { id: "Tattoo & Piercing", label: "Tattoo", icon: "edit-3", color: "#1E293B" },
+  // Auto & Services
+  { id: "Auto Detailing", label: "Detailing", icon: "droplet", color: "#0284C7" },
+  { id: "Auto Repair", label: "Auto Repair", icon: "tool", color: "#B91C1C" },
+  { id: "Tire Shop", label: "Tires", icon: "disc", color: "#374151" },
+  // Home & Professional
+  { id: "Cleaning", label: "Cleaning", icon: "home", color: "#0D9488" },
+  { id: "Handyman", label: "Handyman", icon: "tool", color: "#B45309" },
+  { id: "Landscaping", label: "Landscaping", icon: "sun", color: "#16A34A" },
+  { id: "Photography", label: "Photo", icon: "camera", color: "#7C3AED" },
+  { id: "Printing", label: "Printing", icon: "printer", color: "#475569" },
+  // Entertainment
+  { id: "Nightclub", label: "Nightclub", icon: "music", color: "#9333EA" },
+  { id: "Escape Room", label: "Escape Room", icon: "lock", color: "#DC2626" },
+  { id: "Event Venue", label: "Events", icon: "calendar", color: "#0369A1" },
+  // Cannabis
+  { id: "Dispensary", label: "Dispensary", icon: "plus-circle", color: "#15803D" },
 ];
 
 // Location/City data for search

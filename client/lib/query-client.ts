@@ -1,24 +1,27 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getApiBaseUrl } from "./api-config";
 
 /**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
+ * Gets the base URL for the Express API server (e.g., "http://localhost:5000")
+ * Uses the centralized platform-aware API configuration.
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
-
-  if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
-  }
-
-  let url = new URL(`https://${host}`);
-
-  return url.href;
+  const apiUrl = getApiBaseUrl();
+  // Ensure trailing slash is removed for consistent URL joining
+  return apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
 }
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
+    // Clone the response to avoid consuming the body
+    const clonedRes = res.clone();
+    let text = res.statusText;
+    try {
+      text = (await clonedRes.text()) || res.statusText;
+    } catch {
+      // Silently fail if body can't be read
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

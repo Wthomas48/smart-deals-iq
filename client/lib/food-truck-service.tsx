@@ -89,7 +89,7 @@ export const BOOST_PRICING = {
   basic: {
     id: "boost_basic",
     name: "Basic Boost",
-    price: 4.99,
+    price: 0,
     duration: 24, // hours
     description: "Appear higher in search results for 24 hours",
     multiplier: 1.5,
@@ -98,7 +98,7 @@ export const BOOST_PRICING = {
   premium: {
     id: "boost_premium",
     name: "Premium Boost",
-    price: 14.99,
+    price: 0,
     duration: 72, // hours
     description: "Maximum visibility for 3 days",
     multiplier: 2.5,
@@ -107,7 +107,7 @@ export const BOOST_PRICING = {
   spotlight: {
     id: "boost_spotlight",
     name: "Spotlight",
-    price: 29.99,
+    price: 0,
     duration: 168, // hours (1 week)
     description: "Be the featured truck of the week",
     multiplier: 5,

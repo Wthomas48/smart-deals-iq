@@ -112,7 +112,7 @@ export default function HelpCenterScreen() {
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
   const handleContactSupport = () => {
-    Linking.openURL("mailto:info@smartdealsiq.com?subject=SmartDealsIQ Support Request");
+    Linking.openURL("https://smartdealsiq.com/support/");
   };
 
   return (

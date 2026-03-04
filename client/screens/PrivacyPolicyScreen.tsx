@@ -1,15 +1,19 @@
 import React from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, Linking, Pressable } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Spacer } from "@/components/Spacer";
-import { Spacing } from "@/constants/theme";
+import { Spacing, Colors } from "@/constants/theme";
 
 export default function PrivacyPolicyScreen() {
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
+
+  const handleSupportPress = () => {
+    Linking.openURL("https://smartdealsiq.com/support/");
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -21,144 +25,240 @@ export default function PrivacyPolicyScreen() {
         ]}
       >
         <ThemedText type="h2">Privacy Policy</ThemedText>
-        <ThemedText type="caption" secondary>Last updated: January 2025</ThemedText>
+        <ThemedText type="caption" secondary>SmartDealsIQ Platform</ThemedText>
 
-        <Spacer size="xl" />
+        <Spacer size="lg" />
+
+        <ThemedText type="small" secondary>Effective Date: June 15, 2025</ThemedText>
+        <ThemedText type="small" secondary>Last Updated: January 2026</ThemedText>
+
+        <Spacer size="lg" />
+
+        <View style={styles.operatorBox}>
+          <ThemedText type="small" style={{ fontWeight: '600' }}>Operated by:</ThemedText>
+          <ThemedText type="small" secondary>SMARTDEALSIQ SOLUTIONS LLC</ThemedText>
+          <ThemedText type="small" secondary>("Company," "we," "our," or "us")</ThemedText>
+        </View>
+
+        <Spacer size="lg" />
 
         <ThemedText type="body" secondary>
-          SmartDealsIQ™ ("we", "our", or "us") is committed to protecting your privacy.
-          This Privacy Policy explains how we collect, use, and safeguard your information.
+          This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use our websites, mobile applications, and software-as-a-service platforms, including but not limited to smartdealsiq.com, smartdealsiq.net, SmartDealsIQ, SmartDealsIQ, and other SmartDealsIQ-branded applications (collectively, the "Services").
+        </ThemedText>
+
+        <Spacer size="md" />
+
+        <ThemedText type="body" secondary>
+          By accessing or using our Services, you consent to the practices described in this Privacy Policy.
         </ThemedText>
 
         <Spacer size="xl" />
 
+        {/* Section 1 */}
         <ThemedText type="h4">1. Information We Collect</ThemedText>
+        <Spacer size="md" />
+
+        <ThemedText type="body" style={{ fontWeight: '600' }}>A. Information You Provide</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          <ThemedText type="body" style={{ fontWeight: '600' }}>Account Information:</ThemedText>
-          {"\n"}- Name, email address, and password{"\n"}
-          - Business name and details (for vendors){"\n\n"}
+          We may collect information you voluntarily provide, including:{"\n\n"}
+          - Name{"\n"}
+          - Email address{"\n"}
+          - Account credentials{"\n"}
+          - Business name and vendor details{"\n"}
+          - Support requests and communications{"\n"}
+          - Preferences and settings
+        </ThemedText>
 
-          <ThemedText type="body" style={{ fontWeight: '600' }}>Location Data:</ThemedText>
-          {"\n"}- Your location to show nearby deals{"\n"}
-          - Vendor business locations{"\n\n"}
+        <Spacer size="lg" />
 
-          <ThemedText type="body" style={{ fontWeight: '600' }}>Usage Information:</ThemedText>
-          {"\n"}- Deals you view and save{"\n"}
-          - Search history{"\n"}
-          - App usage patterns
+        <ThemedText type="body" style={{ fontWeight: '600' }}>B. Account & Vendor Information</ThemedText>
+        <Spacer size="sm" />
+        <ThemedText type="body" secondary>
+          If you register as a vendor or business user, we may collect:{"\n\n"}
+          - Business name, category, and description{"\n"}
+          - Business location and service area{"\n"}
+          - Deal, product, or service listings{"\n"}
+          - Transaction-related details
+        </ThemedText>
+
+        <Spacer size="lg" />
+
+        <ThemedText type="body" style={{ fontWeight: '600' }}>C. Automatically Collected Information</ThemedText>
+        <Spacer size="sm" />
+        <ThemedText type="body" secondary>
+          When you use our Services, we may automatically collect:{"\n\n"}
+          - Device type, operating system, and app version{"\n"}
+          - Usage data, interactions, and feature engagement{"\n"}
+          - Log files, diagnostics, and performance data{"\n"}
+          - IP address and approximate location (for security and analytics)
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">2. How We Use Your Information</ThemedText>
+        {/* Section 2 */}
+        <ThemedText type="h4">2. Location Data</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          We use your information to:{"\n\n"}
-          - Provide and improve our services{"\n"}
-          - Show you relevant deals near your location{"\n"}
-          - Send notifications about deals you might like{"\n"}
-          - Process vendor transactions{"\n"}
-          - Ensure security and prevent fraud{"\n"}
-          - Communicate important updates
+          Certain features, such as nearby deals, local discovery, and vendor mapping, require location access.{"\n\n"}
+          We may collect:{"\n\n"}
+          - Approximate or precise location (with your permission){"\n"}
+          - Vendor business locations for display purposes{"\n\n"}
+          You can control location permissions through your device settings. Disabling location access may limit certain features.
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">3. Information Sharing</ThemedText>
+        {/* Section 3 */}
+        <ThemedText type="h4">3. How We Use Your Information</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          We do NOT sell your personal information. We may share information with:{"\n\n"}
-          - Vendors (limited information when you claim a deal){"\n"}
-          - Service providers who help operate our App{"\n"}
-          - Law enforcement when required by law{"\n"}
-          - Other parties with your consent
+          We use collected information to:{"\n\n"}
+          - Provide, operate, and improve our Services{"\n"}
+          - Personalize content, deals, and recommendations{"\n"}
+          - Enable location-based features{"\n"}
+          - Process transactions and vendor interactions{"\n"}
+          - Send service-related notifications and updates{"\n"}
+          - Maintain security, prevent fraud, and ensure compliance{"\n"}
+          - Analyze usage trends and improve performance
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">4. Location Data</ThemedText>
+        {/* Section 4 */}
+        <ThemedText type="h4">4. Analytics & Performance Monitoring</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          We collect location data to show you nearby deals. You can control location access
-          in your device settings. Without location access, some features may be limited.
+          We use analytics and monitoring tools to understand how users interact with our Services, identify issues, and improve functionality. Analytics data is collected in aggregated or anonymized form where possible and is not used to identify individuals directly.
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">5. Data Security</ThemedText>
+        {/* Section 5 */}
+        <ThemedText type="h4">5. Communications & Email</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          We implement industry-standard security measures to protect your data, including:{"\n\n"}
-          - Encryption of data in transit and at rest{"\n"}
-          - Secure authentication{"\n"}
-          - Regular security audits{"\n"}
-          - Access controls and monitoring
+          Our Services may send emails or notifications that are:{"\n\n"}
+          - Transactional{"\n"}
+          - Account-related{"\n"}
+          - Vendor-enabled communications{"\n"}
+          - Service updates or alerts{"\n\n"}
+          Emails are sent only when enabled by the user or vendor. We do not send unsolicited marketing emails without consent.
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">6. Your Rights</ThemedText>
+        {/* Section 6 */}
+        <ThemedText type="h4">6. Payments & Subscriptions</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          You have the right to:{"\n\n"}
+          Payments and subscriptions are processed through secure third-party payment providers. We do not store full payment card information on our servers.
+        </ThemedText>
+
+        <Spacer size="xl" />
+
+        {/* Section 7 */}
+        <ThemedText type="h4">7. Cookies & Tracking Technologies</ThemedText>
+        <Spacer size="sm" />
+        <ThemedText type="body" secondary>
+          We may use cookies or similar technologies to:{"\n\n"}
+          - Maintain sessions{"\n"}
+          - Remember preferences{"\n"}
+          - Improve performance{"\n"}
+          - Analyze usage patterns{"\n\n"}
+          You may control cookies through your browser or device settings.
+        </ThemedText>
+
+        <Spacer size="xl" />
+
+        {/* Section 8 */}
+        <ThemedText type="h4">8. Information Sharing</ThemedText>
+        <Spacer size="sm" />
+        <ThemedText type="body" secondary>
+          We do not sell personal data. Information may be shared only with:{"\n\n"}
+          - Service providers (hosting, analytics, payments){"\n"}
+          - Vendors (limited information necessary to fulfill a deal or service){"\n"}
+          - Legal authorities when required by law{"\n"}
+          - Business successors in the event of a merger or acquisition
+        </ThemedText>
+
+        <Spacer size="xl" />
+
+        {/* Section 9 */}
+        <ThemedText type="h4">9. Data Security</ThemedText>
+        <Spacer size="sm" />
+        <ThemedText type="body" secondary>
+          We implement reasonable administrative, technical, and physical safeguards to protect your information. However, no method of transmission or storage is completely secure.
+        </ThemedText>
+
+        <Spacer size="xl" />
+
+        {/* Section 10 */}
+        <ThemedText type="h4">10. Data Retention</ThemedText>
+        <Spacer size="sm" />
+        <ThemedText type="body" secondary>
+          We retain information as long as necessary to provide our Services, comply with legal obligations, resolve disputes, and enforce agreements. Users may request account deletion where applicable.
+        </ThemedText>
+
+        <Spacer size="xl" />
+
+        {/* Section 11 */}
+        <ThemedText type="h4">11. Your Rights</ThemedText>
+        <Spacer size="sm" />
+        <ThemedText type="body" secondary>
+          Depending on your location, you may have rights to:{"\n\n"}
           - Access your personal data{"\n"}
-          - Correct inaccurate data{"\n"}
-          - Delete your account and data{"\n"}
-          - Opt out of marketing communications{"\n"}
-          - Export your data{"\n"}
-          - Withdraw consent at any time
+          - Correct inaccurate information{"\n"}
+          - Request deletion of your data{"\n"}
+          - Withdraw consent at any time{"\n"}
+          - Opt out of certain data processing{"\n"}
+          - Data portability
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">7. Cookies and Tracking</ThemedText>
+        {/* Section 12 */}
+        <ThemedText type="h4">12. Children's Privacy</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          We use cookies and similar technologies to:{"\n\n"}
-          - Remember your preferences{"\n"}
-          - Analyze app usage{"\n"}
-          - Improve user experience{"\n\n"}
-          You can control cookie settings in your browser or device.
+          Our Services are not intended for children under 13. We do not knowingly collect information from children under 13. If we learn we have collected such information, we will delete it promptly.
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">8. Children's Privacy</ThemedText>
+        {/* Section 13 */}
+        <ThemedText type="h4">13. International Users</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          Our App is not intended for children under 13. We do not knowingly collect
-          information from children under 13. If we learn we have collected such information,
-          we will delete it promptly.
+          If you access our Services from outside the United States, please be aware that your information may be transferred to, stored, and processed in the United States where our servers are located.
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">9. Data Retention</ThemedText>
+        {/* Section 14 */}
+        <ThemedText type="h4">14. Changes to This Policy</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          We retain your data as long as your account is active or as needed to provide services.
-          You can request deletion of your data at any time by contacting us or using the
-          "Delete Account" feature.
+          We may update this Privacy Policy periodically. We will notify you of significant changes through the Services or by email. Your continued use of the Services after changes constitutes acceptance of the updated policy.
         </ThemedText>
 
         <Spacer size="xl" />
 
-        <ThemedText type="h4">10. Changes to This Policy</ThemedText>
+        {/* Section 15 */}
+        <ThemedText type="h4">15. Contact Us</ThemedText>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          We may update this Privacy Policy periodically. We will notify you of significant
-          changes through the App or by email.
+          For privacy-related questions or to exercise your rights:
         </ThemedText>
-
-        <Spacer size="xl" />
-
-        <ThemedText type="h4">11. Contact Us</ThemedText>
+        <Spacer size="md" />
+        <Pressable onPress={handleSupportPress}>
+          <ThemedText type="body" style={{ color: Colors.primary }}>
+            smartdealsiq.com/support
+          </ThemedText>
+        </Pressable>
         <Spacer size="sm" />
         <ThemedText type="body" secondary>
-          For privacy-related questions or to exercise your rights:{"\n\n"}
-          Email: info@smartdealsiq.com{"\n"}
-          Address: SmartDealsIQ™ Inc.
+          SMARTDEALSIQ SOLUTIONS LLC
         </ThemedText>
 
         <Spacer size="3xl" />
@@ -173,5 +273,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
+  },
+  operatorBox: {
+    padding: Spacing.md,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
 });

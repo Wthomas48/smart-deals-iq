@@ -27,13 +27,84 @@ import {
   VendorCategory,
   CreateListingData,
 } from "@/lib/vendor-listing-context";
+import { useOffline } from "@/lib/offline-context";
+import { useAuth } from "@/lib/auth-context";
 import { MAJOR_CITIES } from "@/lib/data-context";
 
-const CATEGORIES: { value: VendorCategory; label: string; icon: string }[] = [
-  { value: "food_truck", label: "Food Truck", icon: "truck" },
-  { value: "restaurant", label: "Restaurant", icon: "home" },
-  { value: "vendor", label: "Vendor/Cart", icon: "shopping-bag" },
+// Category groups for organized display
+const CATEGORY_GROUPS: { group: string; items: { value: VendorCategory; label: string; icon: string }[] }[] = [
+  {
+    group: "Food & Beverage",
+    items: [
+      { value: "food_truck", label: "Food Truck", icon: "truck" },
+      { value: "restaurant", label: "Restaurant", icon: "home" },
+      { value: "vendor", label: "Vendor/Cart", icon: "shopping-bag" },
+      { value: "bakery", label: "Bakery", icon: "gift" },
+      { value: "cafe", label: "Coffee/Cafe", icon: "coffee" },
+      { value: "bar_lounge", label: "Bar/Lounge", icon: "moon" },
+      { value: "juice_smoothie", label: "Juice/Smoothie", icon: "droplet" },
+      { value: "catering", label: "Catering", icon: "clipboard" },
+      { value: "food_delivery", label: "Delivery/Ghost Kitchen", icon: "package" },
+    ],
+  },
+  {
+    group: "Retail & Shopping",
+    items: [
+      { value: "boutique", label: "Boutique/Fashion", icon: "shopping-bag" },
+      { value: "jewelry", label: "Jewelry", icon: "star" },
+      { value: "electronics", label: "Electronics/Repair", icon: "smartphone" },
+      { value: "thrift_vintage", label: "Thrift/Vintage", icon: "refresh-cw" },
+      { value: "smoke_vape", label: "Smoke/Vape", icon: "wind" },
+      { value: "pet_store", label: "Pet Store", icon: "heart" },
+    ],
+  },
+  {
+    group: "Health & Beauty",
+    items: [
+      { value: "salon", label: "Hair Salon", icon: "scissors" },
+      { value: "barbershop", label: "Barbershop", icon: "scissors" },
+      { value: "nail_spa", label: "Nail/Spa", icon: "feather" },
+      { value: "massage", label: "Massage/Wellness", icon: "smile" },
+      { value: "gym_fitness", label: "Gym/Fitness", icon: "activity" },
+      { value: "tattoo_piercing", label: "Tattoo/Piercing", icon: "edit-3" },
+    ],
+  },
+  {
+    group: "Auto & Services",
+    items: [
+      { value: "auto_detailing", label: "Auto Detailing", icon: "droplet" },
+      { value: "auto_repair", label: "Auto Repair", icon: "tool" },
+      { value: "tire_shop", label: "Tire Shop", icon: "disc" },
+    ],
+  },
+  {
+    group: "Home & Professional",
+    items: [
+      { value: "cleaning", label: "Cleaning", icon: "home" },
+      { value: "handyman", label: "Handyman", icon: "tool" },
+      { value: "landscaping", label: "Landscaping", icon: "sun" },
+      { value: "photography", label: "Photography", icon: "camera" },
+      { value: "printing", label: "Printing/Signs", icon: "printer" },
+    ],
+  },
+  {
+    group: "Entertainment",
+    items: [
+      { value: "nightclub", label: "Nightclub/Venue", icon: "music" },
+      { value: "escape_room", label: "Escape Room", icon: "lock" },
+      { value: "event_venue", label: "Event Venue", icon: "calendar" },
+    ],
+  },
+  {
+    group: "Cannabis",
+    items: [
+      { value: "dispensary", label: "Dispensary", icon: "plus-circle" },
+    ],
+  },
 ];
+
+// Flat list for lookups
+const ALL_CATEGORIES = CATEGORY_GROUPS.flatMap((g) => g.items);
 
 export default function MyListingScreen() {
   const { theme } = useTheme();
@@ -55,6 +126,9 @@ export default function MyListingScreen() {
     deleteListing,
     refreshMyListing,
   } = useVendorListing();
+  const { isOnline } = useOffline();
+  const { user } = useAuth();
+  const isDemoUser = user?.id?.startsWith("demo_") || false;
 
   // Form state
   const [businessName, setBusinessName] = useState("");
@@ -140,6 +214,10 @@ export default function MyListingScreen() {
   };
 
   const handleCreateListing = async () => {
+    if (!isOnline && !isDemoUser) {
+      Alert.alert("No Internet", "You need an internet connection to create your listing. Please check your connection and try again.");
+      return;
+    }
     if (!businessName.trim()) {
       Alert.alert("Required", "Please enter your business name");
       return;
@@ -172,6 +250,10 @@ export default function MyListingScreen() {
   };
 
   const handleUpdateListing = async () => {
+    if (!isOnline && !isDemoUser) {
+      Alert.alert("No Internet", "You need an internet connection to update your listing. Please check your connection and try again.");
+      return;
+    }
     if (!businessName.trim()) {
       Alert.alert("Required", "Please enter your business name");
       return;
@@ -191,6 +273,10 @@ export default function MyListingScreen() {
   };
 
   const handleUpdateLocation = async () => {
+    if (!isOnline && !isDemoUser) {
+      Alert.alert("No Internet", "You need an internet connection to update your location. Please check your connection and try again.");
+      return;
+    }
     if (!canUpdateLocation) {
       Alert.alert(
         "Rate Limited",
@@ -217,31 +303,39 @@ export default function MyListingScreen() {
   };
 
   const handleDeleteListing = () => {
-    Alert.alert(
-      "Delete Listing",
-      "Are you sure you want to delete your listing? This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            const success = await deleteListing();
-            if (success) {
-              setBusinessName("");
-              setDescription("");
-              setPhone("");
-              setCity("");
-              setState("");
-              setLocationLat(null);
-              setLocationLng(null);
-              setProductPhotos([]);
-              Alert.alert("Deleted", "Your listing has been removed.");
-            }
-          },
-        },
-      ]
-    );
+    const doDelete = async () => {
+      const success = await deleteListing();
+      if (success) {
+        setBusinessName("");
+        setDescription("");
+        setPhone("");
+        setCity("");
+        setState("");
+        setLocationLat(null);
+        setLocationLng(null);
+        setProductPhotos([]);
+        if (Platform.OS === "web") {
+          window.alert("Your listing has been removed.");
+        } else {
+          Alert.alert("Deleted", "Your listing has been removed.");
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("Delete Listing\n\nAre you sure you want to delete your listing? This cannot be undone.")) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        "Delete Listing",
+        "Are you sure you want to delete your listing? This cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: doDelete },
+        ]
+      );
+    }
   };
 
   const formatLastUpdate = (dateString: string) => {
@@ -341,12 +435,12 @@ export default function MyListingScreen() {
 
               <View style={styles.categoryBadge}>
                 <Feather
-                  name={CATEGORIES.find((c) => c.value === myListing.category)?.icon as any || "tag"}
+                  name={ALL_CATEGORIES.find((c) => c.value === myListing.category)?.icon as any || "tag"}
                   size={14}
                   color={Colors.primary}
                 />
                 <ThemedText type="small" style={{ color: Colors.primary, marginLeft: 4 }}>
-                  {CATEGORIES.find((c) => c.value === myListing.category)?.label}
+                  {ALL_CATEGORIES.find((c) => c.value === myListing.category)?.label || myListing.category}
                 </ThemedText>
               </View>
 
@@ -507,36 +601,46 @@ export default function MyListingScreen() {
               CATEGORY *
             </ThemedText>
             <Spacer size="xs" />
-            <View style={styles.categoryRow}>
-              {CATEGORIES.map((cat) => (
-                <Pressable
-                  key={cat.value}
-                  style={[
-                    styles.categoryOption,
-                    {
-                      backgroundColor: category === cat.value ? Colors.primary + "20" : theme.backgroundDefault,
-                      borderColor: category === cat.value ? Colors.primary : theme.border,
-                    },
-                  ]}
-                  onPress={() => setCategory(cat.value)}
-                >
-                  <Feather
-                    name={cat.icon as any}
-                    size={20}
-                    color={category === cat.value ? Colors.primary : theme.textSecondary}
-                  />
-                  <ThemedText
-                    type="small"
-                    style={{
-                      marginTop: 4,
-                      color: category === cat.value ? Colors.primary : theme.text,
-                    }}
-                  >
-                    {cat.label}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
+            {CATEGORY_GROUPS.map((group) => (
+              <View key={group.group}>
+                <Spacer size="sm" />
+                <ThemedText type="small" secondary style={{ marginBottom: Spacing.xs }}>
+                  {group.group}
+                </ThemedText>
+                <View style={styles.categoryGrid}>
+                  {group.items.map((cat) => (
+                    <Pressable
+                      key={cat.value}
+                      style={[
+                        styles.categoryOption,
+                        {
+                          backgroundColor: category === cat.value ? Colors.primary + "20" : theme.backgroundDefault,
+                          borderColor: category === cat.value ? Colors.primary : theme.border,
+                        },
+                      ]}
+                      onPress={() => setCategory(cat.value)}
+                    >
+                      <Feather
+                        name={cat.icon as any}
+                        size={18}
+                        color={category === cat.value ? Colors.primary : theme.textSecondary}
+                      />
+                      <ThemedText
+                        type="caption"
+                        style={{
+                          marginTop: 2,
+                          textAlign: "center",
+                          color: category === cat.value ? Colors.primary : theme.text,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {cat.label}
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ))}
 
             <Spacer size="lg" />
 
@@ -826,16 +930,19 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     textAlignVertical: "top",
   },
-  categoryRow: {
+  categoryGrid: {
     flexDirection: "row",
-    gap: Spacing.sm,
+    flexWrap: "wrap",
+    gap: Spacing.xs,
   },
   categoryOption: {
-    flex: 1,
     alignItems: "center",
-    padding: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
+    minWidth: 90,
+    maxWidth: 110,
   },
   rowInputs: {
     flexDirection: "row",

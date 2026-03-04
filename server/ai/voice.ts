@@ -1,9 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { generateText, transcribeAudio } from "./client";
+import { authMiddleware } from "../auth";
 
 export function registerVoiceRoutes(app: Express): void {
   // Transcribe audio using OpenAI Whisper
-  app.post("/api/voice/transcribe", async (req: Request, res: Response) => {
+  app.post("/api/voice/transcribe", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { audioData, mimeType = "audio/webm" } = req.body;
 
@@ -23,7 +24,7 @@ export function registerVoiceRoutes(app: Express): void {
   });
 
   // Generate promo from description using OpenAI/Anthropic
-  app.post("/api/voice/generate-promo", async (req: Request, res: Response) => {
+  app.post("/api/voice/generate-promo", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { description, businessType, dealType } = req.body;
 
@@ -31,11 +32,16 @@ export function registerVoiceRoutes(app: Express): void {
         return res.status(400).json({ error: "Description is required" });
       }
 
+      // Sanitize inputs to prevent prompt injection
+      const safeDescription = String(description).slice(0, 500);
+      const safeBusinessType = String(businessType || "restaurant").slice(0, 50);
+      const safeDealType = String(dealType || "discount").slice(0, 50);
+
       const prompt = `Based on this description, create a professional promotional deal:
 
-Description: "${description}"
-Business Type: ${businessType || "restaurant"}
-Deal Type: ${dealType || "discount"}
+Description: "${safeDescription}"
+Business Type: ${safeBusinessType}
+Deal Type: ${safeDealType}
 
 Generate a JSON response with:
 {
@@ -53,9 +59,14 @@ Be creative, engaging, and make the offer sound irresistible. Only return valid 
       });
 
       const jsonMatch = result.match(/\{[\s\S]*\}/);
-      const promoData = jsonMatch
-        ? JSON.parse(jsonMatch[0])
-        : { title: description, description: "", suggestedDiscount: "10%" };
+      let promoData;
+      try {
+        promoData = jsonMatch
+          ? JSON.parse(jsonMatch[0])
+          : { title: safeDescription, description: "", suggestedDiscount: "10%" };
+      } catch {
+        promoData = { title: safeDescription, description: "", suggestedDiscount: "10%" };
+      }
 
       res.json(promoData);
     } catch (error) {
@@ -65,7 +76,7 @@ Be creative, engaging, and make the offer sound irresistible. Only return valid 
   });
 
   // Parse voice search query using OpenAI/Anthropic
-  app.post("/api/voice/search-deals", async (req: Request, res: Response) => {
+  app.post("/api/voice/search-deals", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { query } = req.body;
 
@@ -73,9 +84,11 @@ Be creative, engaging, and make the offer sound irresistible. Only return valid 
         return res.status(400).json({ error: "Query is required" });
       }
 
+      const safeQuery = String(query).slice(0, 300);
+
       const prompt = `Extract search parameters from this voice query about finding food deals:
 
-Query: "${query}"
+Query: "${safeQuery}"
 
 Return JSON with:
 {
@@ -94,9 +107,14 @@ Only return valid JSON.`;
       });
 
       const jsonMatch = result.match(/\{[\s\S]*\}/);
-      const searchParams = jsonMatch
-        ? JSON.parse(jsonMatch[0])
-        : { keywords: query.split(" ") };
+      let searchParams;
+      try {
+        searchParams = jsonMatch
+          ? JSON.parse(jsonMatch[0])
+          : { keywords: safeQuery.split(" ") };
+      } catch {
+        searchParams = { keywords: safeQuery.split(" ") };
+      }
 
       res.json(searchParams);
     } catch (error) {

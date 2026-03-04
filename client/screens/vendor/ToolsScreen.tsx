@@ -147,12 +147,12 @@ const FLYER_TEMPLATES = [
   { id: "seasonal", name: "Seasonal", color: "#06B6D4" },
 ];
 
-// Print sizes and pricing
+// Print sizes and options
 const PRINT_OPTIONS = [
-  { size: "4x6", name: "Postcard", price: 0.15, qty: [50, 100, 250, 500] },
-  { size: "5x7", name: "Small Flyer", price: 0.25, qty: [50, 100, 250, 500] },
-  { size: "8.5x11", name: "Full Page", price: 0.35, qty: [50, 100, 250, 500] },
-  { size: "11x17", name: "Poster", price: 0.75, qty: [25, 50, 100, 250] },
+  { size: "4x6", name: "Postcard", price: 0, qty: [50, 100, 250, 500] },
+  { size: "5x7", name: "Small Flyer", price: 0, qty: [50, 100, 250, 500] },
+  { size: "8.5x11", name: "Full Page", price: 0, qty: [50, 100, 250, 500] },
+  { size: "11x17", name: "Poster", price: 0, qty: [25, 50, 100, 250] },
 ];
 
 const AI_COPY_TEMPLATES = [
@@ -217,7 +217,7 @@ export default function ToolsScreen() {
         if (!isSubscribed) {
           Alert.alert(
             "Pro Feature",
-            "Upgrade to Pro ($29.99/mo) to boost your listing and get more visibility. Or try our 7-Day Ad for just $7.99!",
+            "Upgrade to Pro to boost your listing and get more visibility. Visit our website to subscribe!",
             [
               { text: "Maybe Later", style: "cancel" },
               { text: "View Plans", onPress: () => {} },
@@ -238,7 +238,7 @@ export default function ToolsScreen() {
         if (!isSubscribed) {
           Alert.alert(
             "Pro Feature",
-            "Upgrade to Pro ($29.99/mo) to access the Flyer Designer and print marketing materials. Or try our 7-Day Ad for just $7.99!",
+            "Upgrade to Pro to access the Flyer Designer and print marketing materials. Visit our website to subscribe!",
             [
               { text: "Maybe Later", style: "cancel" },
               { text: "View Plans", onPress: () => {} },

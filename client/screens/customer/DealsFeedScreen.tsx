@@ -16,6 +16,7 @@ import { LocationSearch } from "@/components/LocationSearch";
 import { useTheme } from "@/hooks/useTheme";
 import { useData, FlashDeal } from "@/lib/data-context";
 import { useLocation } from "@/lib/location-context";
+import { useOffline } from "@/lib/offline-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { CustomerStackParamList } from "@/navigation/CustomerTabNavigator";
@@ -41,6 +42,7 @@ export default function DealsFeedScreen() {
   } = useData();
   const locationContext = useLocation();
   const { userLocation, locationPermission, requestPermission, calculateDistance, refreshLocation, isLoading: locationLoading } = locationContext;
+  const { isOnline } = useOffline();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -284,7 +286,7 @@ export default function DealsFeedScreen() {
           if (Platform.OS !== "web") {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           }
-          // Navigate to deal or show modal
+          navigation.navigate("DealDetail", { dealId: deal.id });
         }}
       >
         <View style={[styles.flashBadge, { backgroundColor: Colors.error }]}>
@@ -424,11 +426,13 @@ export default function DealsFeedScreen() {
         ItemSeparatorComponent={() => <Spacer size="md" />}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Feather name="map-pin" size={48} color={theme.textSecondary} />
+            <Feather name={!isOnline ? "wifi-off" : "map-pin"} size={48} color={theme.textSecondary} />
             <Spacer size="lg" />
-            <ThemedText type="h4">No deals found</ThemedText>
+            <ThemedText type="h4">{!isOnline ? "You're Offline" : "No deals found"}</ThemedText>
             <ThemedText type="body" secondary style={styles.emptyText}>
-              {searchQuery || selectedCategory !== "All"
+              {!isOnline
+                ? "Check your internet connection and pull down to refresh"
+                : searchQuery || selectedCategory !== "All"
                 ? "Try adjusting your search or filters"
                 : "Check back later for new deals"}
             </ThemedText>

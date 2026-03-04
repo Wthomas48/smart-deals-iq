@@ -5,19 +5,14 @@ import { Feather } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import * as Haptics from "expo-haptics";
-import Constants from "expo-constants";
-
-// API base URL from environment
-const API_URL = Constants.expoConfig?.extra?.apiUrl ||
-  process.env.EXPO_PUBLIC_API_URL ||
-  "http://localhost:5000";
+import { getApiBaseUrl } from "@/lib/api-config";
 
 // Demo promo suggestions for fallback when API is unavailable
 const DEMO_PROMOS = [
   { title: "Happy Hour Special", description: "50% off all appetizers from 3-6pm!" },
   { title: "Taco Tuesday", description: "Buy 2 tacos, get 1 free all day Tuesday" },
   { title: "Weekend Brunch Deal", description: "Free mimosa with any brunch entree" },
-  { title: "Family Meal Bundle", description: "Feed 4 for just $29.99 - includes sides!" },
+  { title: "Family Meal Bundle", description: "Feed the whole family - includes sides!" },
   { title: "Flash Lunch Special", description: "20% off all orders between 11am-2pm" },
   { title: "First-Timer Discount", description: "New customers get 25% off their first order" },
 ];
@@ -62,7 +57,7 @@ export function VoiceInput({
   // Generate promo using backend API
   const generatePromo = useCallback(async (description: string): Promise<{ title: string; description: string; suggestedDiscount?: string }> => {
     try {
-      const response = await fetch(`${API_URL}/api/voice/generate-promo`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/voice/generate-promo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description, businessType, dealType }),

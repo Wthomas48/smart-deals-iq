@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Image, TextInput, Modal } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Alert, Image, TextInput, Modal, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -13,6 +13,20 @@ import { useAuth } from "@/lib/auth-context";
 import { usePreferences } from "@/lib/preferences-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
+
+/** Cross-platform confirm dialog that works on web and native */
+function confirmAction(title: string, message: string, onConfirm: () => void) {
+  if (Platform.OS === "web") {
+    if (window.confirm(`${title}\n\n${message}`)) {
+      onConfirm();
+    }
+  } else {
+    Alert.alert(title, message, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Confirm", style: "destructive", onPress: onConfirm },
+    ]);
+  }
+}
 
 const GUEST_EMAIL_KEY = "@smartdealsiq_guest_email";
 
@@ -36,6 +50,12 @@ export default function ProfileScreen() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailInput, setEmailInput] = useState("");
 
+  // Delete account state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     loadGuestEmail();
   }, []);
@@ -49,18 +69,26 @@ export default function ProfileScreen() {
     }
   };
 
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}: ${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const saveGuestEmail = async () => {
     if (!emailInput || !emailInput.includes("@")) {
-      Alert.alert("Invalid Email", "Please enter a valid email address");
+      showAlert("Invalid Email", "Please enter a valid email address");
       return;
     }
     try {
       await AsyncStorage.setItem(GUEST_EMAIL_KEY, emailInput);
       setGuestEmail(emailInput);
       setShowEmailModal(false);
-      Alert.alert("Success", "Email saved! You'll receive deal alerts and updates.");
+      showAlert("Success", "Email saved! You'll receive deal alerts and updates.");
     } catch (error) {
-      Alert.alert("Error", "Failed to save email. Please try again.");
+      showAlert("Error", "Failed to save email. Please try again.");
     }
   };
 
@@ -69,53 +97,67 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    confirmAction(
       "Log Out",
       "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Log Out", style: "destructive", onPress: logout },
-      ]
+      logout
     );
   };
 
+  const isSocialAuthUser = user?.authProvider && user.authProvider !== "email";
+
   const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to delete your account? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            Alert.alert(
-              "Confirm Deletion",
-              "This will permanently delete all your data. Are you absolutely sure?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete Forever",
-                  style: "destructive",
-                  onPress: async () => {
-                    try {
-                      // For production, you may want to prompt for password
-                      await deleteAccount("");
-                      Alert.alert("Account Deleted", "Your account has been permanently deleted.");
-                    } catch (error: any) {
-                      // If deletion fails, just log out for now
-                      console.error("Delete account error:", error);
-                      await logout();
-                      Alert.alert("Account Removed", "You have been logged out.");
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-      ]
-    );
+    if (isSocialAuthUser) {
+      // Social auth users don't have a password — confirm directly
+      confirmAction(
+        "Delete Account",
+        "Are you sure you want to delete your account? This action cannot be undone.",
+        async () => {
+          setIsDeleting(true);
+          try {
+            await deleteAccount("", true);
+            showAlert("Account Deleted", "Your account has been permanently deleted.");
+          } catch (error: any) {
+            showAlert("Error", error?.message || "Failed to delete account.");
+          } finally {
+            setIsDeleting(false);
+          }
+        }
+      );
+    } else {
+      confirmAction(
+        "Delete Account",
+        "Are you sure you want to delete your account? This action cannot be undone. You will need to enter your password to confirm.",
+        () => {
+          setDeletePassword("");
+          setDeleteError("");
+          setShowDeleteModal(true);
+        }
+      );
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletePassword.trim()) {
+      setDeleteError("Please enter your password to confirm deletion.");
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteAccount(deletePassword.trim());
+      setShowDeleteModal(false);
+      showAlert("Account Deleted", "Your account has been permanently deleted.");
+    } catch (error: any) {
+      const msg = error?.message?.toLowerCase() || "";
+      if (msg.includes("incorrect") || msg.includes("password") || msg.includes("invalid")) {
+        setDeleteError("Incorrect password. Please try again.");
+      } else {
+        setDeleteError(error?.message || "Failed to delete account. Please try again.");
+      }
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Settings sections - adjusted for guest vs authenticated users
@@ -291,6 +333,66 @@ export default function ProfileScreen() {
           <ThemedText type="caption" secondary>Version 1.0.0</ThemedText>
         </View>
       </ScrollView>
+
+      {/* Delete Account Password Modal */}
+      <Modal visible={showDeleteModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h4">Confirm Account Deletion</ThemedText>
+              <Pressable onPress={() => { setShowDeleteModal(false); setDeleteError(""); }}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+
+            <Spacer size="md" />
+
+            <ThemedText type="small" secondary>
+              This will permanently delete your account and all associated data. Enter your password to confirm.
+            </ThemedText>
+
+            <Spacer size="lg" />
+
+            <TextInput
+              style={[styles.emailInput, { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: deleteError ? Colors.error : theme.border }]}
+              placeholder="Enter your password"
+              placeholderTextColor={theme.textSecondary}
+              value={deletePassword}
+              onChangeText={(text) => { setDeletePassword(text); setDeleteError(""); }}
+              secureTextEntry
+              autoComplete="password"
+              editable={!isDeleting}
+            />
+
+            {deleteError ? (
+              <>
+                <Spacer size="sm" />
+                <ThemedText type="small" style={{ color: Colors.error }}>{deleteError}</ThemedText>
+              </>
+            ) : null}
+
+            <Spacer size="lg" />
+
+            <Pressable
+              style={[styles.saveButton, { backgroundColor: Colors.error, opacity: isDeleting ? 0.6 : 1 }]}
+              onPress={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              <ThemedText type="body" style={{ color: "#fff", fontWeight: "600" }}>
+                {isDeleting ? "Deleting..." : "Delete My Account"}
+              </ThemedText>
+            </Pressable>
+
+            <Spacer size="md" />
+
+            <Pressable onPress={() => { setShowDeleteModal(false); setDeleteError(""); }}>
+              <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
+                Cancel
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Email Modal for Guest Users */}
       <Modal visible={showEmailModal} animationType="slide" transparent>

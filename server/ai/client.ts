@@ -63,7 +63,7 @@ export async function generateText(
     // Fallback to Anthropic
     try {
       const response = await getAnthropic().messages.create({
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: maxTokens,
         system: systemPrompt || undefined,
         messages: [{ role: "user", content: prompt }],
@@ -116,7 +116,7 @@ export async function* generateTextStream(
 
     // Fallback to Anthropic streaming
     const stream = await getAnthropic().messages.stream({
-      model: "claude-3-haiku-20240307",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: maxTokens,
       system: systemPrompt || undefined,
       messages: messages.map((m) => ({

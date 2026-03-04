@@ -14,6 +14,7 @@ import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useData, Vendor } from "@/lib/data-context";
 import { useVendorListing, PublicVendorListing } from "@/lib/vendor-listing-context";
+import { useOffline } from "@/lib/offline-context";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { CustomerStackParamList } from "@/navigation/CustomerTabNavigator";
@@ -49,9 +50,46 @@ const RADIUS_OPTIONS = [1, 5, 10];
 
 // Category labels for display
 const CATEGORY_LABELS: Record<string, string> = {
+  // Food & Beverage
   food_truck: "Food Truck",
   restaurant: "Restaurant",
   vendor: "Vendor/Cart",
+  bakery: "Bakery",
+  cafe: "Coffee/Cafe",
+  bar_lounge: "Bar/Lounge",
+  juice_smoothie: "Juice/Smoothie",
+  catering: "Catering",
+  food_delivery: "Delivery",
+  // Retail & Shopping
+  boutique: "Boutique",
+  jewelry: "Jewelry",
+  electronics: "Electronics",
+  thrift_vintage: "Thrift/Vintage",
+  smoke_vape: "Smoke/Vape",
+  pet_store: "Pet Store",
+  // Health & Beauty
+  salon: "Salon",
+  barbershop: "Barbershop",
+  nail_spa: "Nail/Spa",
+  massage: "Massage",
+  gym_fitness: "Gym/Fitness",
+  tattoo_piercing: "Tattoo/Piercing",
+  // Auto & Services
+  auto_detailing: "Auto Detailing",
+  auto_repair: "Auto Repair",
+  tire_shop: "Tire Shop",
+  // Home & Professional
+  cleaning: "Cleaning",
+  handyman: "Handyman",
+  landscaping: "Landscaping",
+  photography: "Photography",
+  printing: "Printing/Signs",
+  // Entertainment
+  nightclub: "Nightclub",
+  escape_room: "Escape Room",
+  event_venue: "Event Venue",
+  // Cannabis
+  dispensary: "Dispensary",
 };
 
 export default function MapScreen() {
@@ -61,6 +99,7 @@ export default function MapScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vendors, deals, isFavorite } = useData();
   const { publicVendors, fetchPublicVendors } = useVendorListing();
+  const { isOnline } = useOffline();
   const mapRef = useRef<any>(null);
 
   const [permission, requestPermission] = Location.useForegroundPermissions();
@@ -69,10 +108,12 @@ export default function MapScreen() {
   const [selectedFreeVendor, setSelectedFreeVendor] = useState<PublicVendorListing | null>(null);
   const [radiusIndex, setRadiusIndex] = useState(1);
 
-  // Fetch free vendors on mount
+  // Fetch free vendors on mount (only if online)
   useEffect(() => {
-    fetchPublicVendors();
-  }, []);
+    if (isOnline) {
+      fetchPublicVendors();
+    }
+  }, [isOnline]);
 
   useEffect(() => {
     if (permission?.granted) {

@@ -119,8 +119,8 @@ export function registerPaymentRoutes(app: Express) {
           },
         ],
         mode: checkoutMode,
-        success_url: successUrl || `${process.env.EXPO_PUBLIC_API_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl || `${process.env.EXPO_PUBLIC_API_URL}/payment-cancelled`,
+        success_url: successUrl || `${process.env.EXPO_PUBLIC_API_URL || "https://smartdealsiq.com"}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl || `${process.env.EXPO_PUBLIC_API_URL || "https://smartdealsiq.com"}/payment-cancelled`,
         metadata: {
           vendorId,
           productId,

@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, Alert, ActivityIndicator, ScrollView, Plat
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
+import * as Linking from "expo-linking";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -13,6 +14,49 @@ import { useAuth } from "@/lib/auth-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+
+const BILLING_BASE_URL = "https://smartdealsiq.com/vendor/billing";
+
+const PLAN_FEATURES = [
+  {
+    id: "free",
+    name: "Free Tier",
+    description: "Basic listing on map",
+    features: [
+      "Business listing on map",
+      "1 location update per hour",
+      "Standard map pin",
+      "Basic profile",
+    ],
+  },
+  {
+    id: "starter",
+    name: "7-Day Featured Ad",
+    description: "One-time featured listing",
+    features: [
+      "7 days featured listing",
+      "3 active promotions",
+      "Unlimited location updates",
+      "Featured map pin",
+      "Basic analytics",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro Plan",
+    description: "Full-featured for growing businesses",
+    features: [
+      "Unlimited promotions",
+      "Flash deal notifications",
+      "Advanced analytics dashboard",
+      "Priority support",
+      "Barcode/QR generator",
+      "Flyer & menu designer",
+      "Voice input for promotions",
+      "AI-powered suggestions",
+    ],
+  },
+];
 
 const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
   if (Platform.OS !== "web") {
@@ -40,81 +84,46 @@ export default function PricingScreen() {
     subscribe,
     cancelSubscription,
     loading,
-    plans,
-    formatPrice,
   } = useSubscription();
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleSelectPlan = (planId: string) => {
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedPlan(planId);
-  };
+  const billingUrl = `${BILLING_BASE_URL}?vendorId=${encodeURIComponent(user?.id || "")}&email=${encodeURIComponent(user?.email || "")}`;
 
-  const handlePurchase = async () => {
-    if (!selectedPlan) return;
-
-    const plan = plans.find((p) => p.id === selectedPlan);
-    if (!plan) return;
-
+  const handleManageBilling = () => {
     triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
-    setProcessing(true);
-
-    // Free tier - no confirmation needed
-    if (plan.price === 0) {
-      const success = await subscribe(selectedPlan, user?.email);
-      if (success) {
-        triggerNotification(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Success", "Free tier activated! You can now list your business on the map.");
-      }
-      setProcessing(false);
-      setSelectedPlan(null);
-      return;
-    }
-
-    Alert.alert(
-      "Confirm Purchase",
-      `Subscribe to ${plan.name} for ${formatPrice(plan.price)}${plan.interval ? `/${plan.interval}` : ""}?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-          onPress: () => setProcessing(false),
-        },
-        {
-          text: "Purchase",
-          onPress: async () => {
-            const success = await subscribe(selectedPlan, user?.email);
-            if (success) {
-              triggerNotification(Haptics.NotificationFeedbackType.Success);
-              Alert.alert("Success", `You're now subscribed to the ${plan.name} plan!`);
-            } else {
-              triggerNotification(Haptics.NotificationFeedbackType.Error);
-              Alert.alert("Error", "Payment failed. Please try again.");
-            }
-            setProcessing(false);
-            setSelectedPlan(null);
-          },
-        },
-      ]
-    );
+    Linking.openURL(billingUrl);
   };
 
-  const handleCancel = () => {
+  const handleRefreshStatus = async () => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
+    setRefreshing(true);
+    try {
+      // Re-check subscription status from server
+      await subscribe("refresh", user?.email);
+      triggerNotification(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Status Updated", "Your subscription status has been refreshed.");
+    } catch {
+      Alert.alert("Error", "Could not refresh status. Please try again.");
+    }
+    setRefreshing(false);
+  };
+
+  const handleActivateFree = async () => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    const success = await subscribe("prod_free", user?.email);
+    if (success) {
+      triggerNotification(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Success", "Free tier activated! You can now list your business on the map.");
+    }
+  };
+
+  const handleCancelOnWeb = () => {
     Alert.alert(
-      "Cancel Subscription",
-      "Are you sure you want to cancel your subscription? You'll lose access to Pro features.",
+      "Manage Subscription",
+      "To cancel or change your subscription, visit your billing page on our website.",
       [
-        { text: "Keep Subscription", style: "cancel" },
-        {
-          text: "Cancel Subscription",
-          style: "destructive",
-          onPress: async () => {
-            await cancelSubscription();
-            triggerNotification(Haptics.NotificationFeedbackType.Success);
-            Alert.alert("Subscription Cancelled", "Your subscription has been cancelled.");
-          },
-        },
+        { text: "Not Now", style: "cancel" },
+        { text: "Open Billing Page", onPress: () => Linking.openURL(billingUrl) },
       ]
     );
   };
@@ -150,7 +159,7 @@ export default function PricingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {isSubscribed ? (
+        {isSubscribed && subscription?.planId !== "prod_free" ? (
           <>
             <Card style={styles.activeSubscription}>
               <View style={styles.subscriptionHeader}>
@@ -160,7 +169,7 @@ export default function PricingScreen() {
                 <View style={styles.subscriptionInfo}>
                   <ThemedText type="h4">Active Subscription</ThemedText>
                   <ThemedText type="body" secondary>
-                    {plans.find((p) => p.id === subscription?.planId)?.name}
+                    {isPro ? "Pro Plan" : "Featured Ad"}
                   </ThemedText>
                 </View>
               </View>
@@ -208,8 +217,39 @@ export default function PricingScreen() {
             <Spacer size="lg" />
 
             <Pressable
+              style={[styles.manageButton, { backgroundColor: Colors.primary }]}
+              onPress={handleManageBilling}
+            >
+              <Feather name="external-link" size={20} color="#fff" style={{ marginRight: Spacing.sm }} />
+              <ThemedText type="body" style={{ color: "#fff", fontWeight: "600" }}>
+                Manage Billing on Website
+              </ThemedText>
+            </Pressable>
+
+            <Spacer size="md" />
+
+            <Pressable
+              style={[styles.refreshButton, { borderColor: Colors.primary }]}
+              onPress={handleRefreshStatus}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <ActivityIndicator color={Colors.primary} />
+              ) : (
+                <>
+                  <Feather name="refresh-cw" size={18} color={Colors.primary} style={{ marginRight: Spacing.sm }} />
+                  <ThemedText type="body" style={{ color: Colors.primary }}>
+                    Refresh Status
+                  </ThemedText>
+                </>
+              )}
+            </Pressable>
+
+            <Spacer size="lg" />
+
+            <Pressable
               style={[styles.cancelButton, { borderColor: Colors.error }]}
-              onPress={handleCancel}
+              onPress={handleCancelOnWeb}
             >
               <ThemedText type="body" style={{ color: Colors.error }}>
                 Cancel Subscription
@@ -223,116 +263,102 @@ export default function PricingScreen() {
                 <Feather name="star" size={32} color={Colors.primary} />
               </View>
               <Spacer size="md" />
-              <ThemedText type="h2">Upgrade to Pro</ThemedText>
+              <ThemedText type="h2">Grow Your Business</ThemedText>
               <Spacer size="sm" />
               <ThemedText type="body" secondary style={{ textAlign: "center" }}>
-                Unlock powerful tools to grow your business
+                Unlock powerful tools to reach more customers
               </ThemedText>
             </View>
 
             <Spacer size="xl" />
 
-            {plans.map((plan) => {
-              const isSelected = selectedPlan === plan.id;
-              return (
-                <Card
-                  key={plan.id}
-                  onPress={() => handleSelectPlan(plan.id)}
-                  style={[
-                    styles.planCard,
-                    isSelected && styles.planCardSelected,
-                    { borderColor: isSelected ? Colors.primary : theme.border, borderWidth: isSelected ? 2 : 1 },
-                  ]}
-                >
-                  {plan.savings && (
-                    <View style={[styles.savingsBadge, { backgroundColor: Colors.success }]}>
-                      <ThemedText type="caption" style={{ color: "#fff", fontWeight: "700" }}>
-                        SAVE {plan.savings}%
-                      </ThemedText>
-                    </View>
-                  )}
-
-                  <View style={styles.planHeader}>
-                    {/* Radio Button Indicator */}
-                    <View style={[
-                      styles.radioButton,
-                      { borderColor: isSelected ? Colors.primary : theme.textSecondary }
-                    ]}>
-                      {isSelected && (
-                        <View style={[styles.radioButtonInner, { backgroundColor: Colors.primary }]} />
-                      )}
-                    </View>
-                    <View style={styles.planInfo}>
-                      <ThemedText type="h4">{plan.name}</ThemedText>
-                      <ThemedText type="small" secondary>
-                        {plan.description}
-                      </ThemedText>
-                    </View>
-                    <View style={styles.priceContainer}>
-                      <ThemedText type="h2" style={{ color: isSelected ? Colors.primary : theme.text }}>
-                        {formatPrice(plan.price)}
-                      </ThemedText>
-                      {plan.interval && (
-                        <ThemedText type="caption" secondary>
-                          /{plan.interval}
-                        </ThemedText>
-                      )}
-                    </View>
+            {/* Free Tier */}
+            <Card style={[styles.planCard, { borderColor: theme.border, borderWidth: 1 }]}>
+              <View style={styles.planHeader}>
+                <View style={styles.planInfo}>
+                  <ThemedText type="h4">{PLAN_FEATURES[0].name}</ThemedText>
+                  <ThemedText type="small" secondary>{PLAN_FEATURES[0].description}</ThemedText>
+                </View>
+                <View style={[styles.freeBadge, { backgroundColor: Colors.success + "20" }]}>
+                  <ThemedText type="small" style={{ color: Colors.success, fontWeight: "700" }}>FREE</ThemedText>
+                </View>
+              </View>
+              <Spacer size="md" />
+              <View style={styles.features}>
+                {PLAN_FEATURES[0].features.map((feature, index) => (
+                  <View key={index} style={styles.featureRow}>
+                    <Feather name="check" size={16} color={Colors.success} />
+                    <ThemedText type="small" style={styles.featureText}>{feature}</ThemedText>
                   </View>
+                ))}
+              </View>
+              <Spacer size="md" />
+              <Pressable
+                style={[styles.activateButton, { backgroundColor: Colors.success }]}
+                onPress={handleActivateFree}
+              >
+                <ThemedText type="body" style={{ color: "#fff", fontWeight: "600" }}>
+                  Activate Free Tier
+                </ThemedText>
+              </Pressable>
+            </Card>
 
-                  <Spacer size="md" />
-
-                  <View style={styles.features}>
-                    {plan.features?.map((feature, index) => (
-                      <View key={index} style={styles.featureRow}>
-                        <Feather name="check" size={16} color={Colors.success} />
-                        <ThemedText type="small" style={styles.featureText}>
-                          {feature}
-                        </ThemedText>
-                      </View>
-                    ))}
+            {/* Paid Plans - No prices shown */}
+            {PLAN_FEATURES.slice(1).map((plan) => (
+              <Card key={plan.id} style={[styles.planCard, { borderColor: theme.border, borderWidth: 1 }]}>
+                {plan.id === "pro" && (
+                  <View style={[styles.popularBadge, { backgroundColor: Colors.primary }]}>
+                    <ThemedText type="caption" style={{ color: "#fff", fontWeight: "700" }}>
+                      MOST POPULAR
+                    </ThemedText>
                   </View>
-
-                  {isSelected && (
-                    <View style={[styles.selectedBadge, { backgroundColor: Colors.primary }]}>
-                      <Feather name="check" size={14} color="#fff" />
-                      <ThemedText type="caption" style={{ color: "#fff", marginLeft: 4 }}>
-                        Selected
-                      </ThemedText>
+                )}
+                <View style={styles.planHeader}>
+                  <View style={styles.planInfo}>
+                    <ThemedText type="h4">{plan.name}</ThemedText>
+                    <ThemedText type="small" secondary>{plan.description}</ThemedText>
+                  </View>
+                </View>
+                <Spacer size="md" />
+                <View style={styles.features}>
+                  {plan.features.map((feature, index) => (
+                    <View key={index} style={styles.featureRow}>
+                      <Feather name="check" size={16} color={Colors.success} />
+                      <ThemedText type="small" style={styles.featureText}>{feature}</ThemedText>
                     </View>
-                  )}
-                </Card>
-              );
-            })}
+                  ))}
+                </View>
+              </Card>
+            ))}
 
             <Spacer size="xl" />
 
+            {/* Subscribe on Website button */}
             <Pressable
-              style={[
-                styles.purchaseButton,
-                { backgroundColor: selectedPlan ? Colors.primary : theme.backgroundTertiary },
-              ]}
-              onPress={handlePurchase}
-              disabled={!selectedPlan || processing}
+              style={[styles.purchaseButton, { backgroundColor: Colors.primary }]}
+              onPress={handleManageBilling}
             >
-              {processing ? (
-                <ActivityIndicator color="#fff" />
+              <Feather name="external-link" size={20} color="#fff" style={{ marginRight: Spacing.sm }} />
+              <ThemedText type="body" style={{ color: "#fff", fontWeight: "600" }}>
+                Subscribe on Website
+              </ThemedText>
+            </Pressable>
+
+            <Spacer size="md" />
+
+            {/* Refresh Status button */}
+            <Pressable
+              style={[styles.refreshButton, { borderColor: Colors.primary }]}
+              onPress={handleRefreshStatus}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <ActivityIndicator color={Colors.primary} />
               ) : (
                 <>
-                  <Feather
-                    name="credit-card"
-                    size={20}
-                    color={selectedPlan ? "#fff" : theme.textSecondary}
-                    style={{ marginRight: Spacing.sm }}
-                  />
-                  <ThemedText
-                    type="body"
-                    style={{
-                      color: selectedPlan ? "#fff" : theme.textSecondary,
-                      fontWeight: "600",
-                    }}
-                  >
-                    {selectedPlan ? "Subscribe Now" : "Select a Plan"}
+                  <Feather name="refresh-cw" size={18} color={Colors.primary} style={{ marginRight: Spacing.sm }} />
+                  <ThemedText type="body" style={{ color: Colors.primary }}>
+                    Already Subscribed? Refresh Status
                   </ThemedText>
                 </>
               )}
@@ -343,14 +369,14 @@ export default function PricingScreen() {
             <View style={styles.securityInfo}>
               <Feather name="lock" size={16} color={theme.textSecondary} />
               <ThemedText type="caption" secondary style={{ marginLeft: Spacing.xs }}>
-                Secure payment powered by Stripe
+                Secure payment on smartdealsiq.com
               </ThemedText>
             </View>
 
             <Spacer size="md" />
 
             <ThemedText type="caption" secondary style={styles.disclaimer}>
-              Cancel anytime. No hidden fees. All payments are securely processed.
+              Subscribe on our website. After payment, return here and tap "Refresh Status" to unlock features.
             </ThemedText>
           </>
         )}
@@ -401,34 +427,26 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
   },
-  planCardSelected: {
-    backgroundColor: Colors.primary + "08",
-  },
   planHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
-  },
-  radioButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: Spacing.md,
-    marginTop: 2,
-  },
-  radioButtonInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
   },
   planInfo: {
     flex: 1,
     marginRight: Spacing.md,
   },
-  priceContainer: {
-    alignItems: "flex-end",
+  freeBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  popularBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderBottomLeftRadius: BorderRadius.md,
   },
   features: {
     gap: Spacing.sm,
@@ -441,23 +459,10 @@ const styles = StyleSheet.create({
   featureText: {
     flex: 1,
   },
-  selectedBadge: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    flexDirection: "row",
+  activateButton: {
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderBottomLeftRadius: BorderRadius.md,
-  },
-  savingsBadge: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderBottomRightRadius: BorderRadius.md,
   },
   purchaseButton: {
     flexDirection: "row",
@@ -465,6 +470,21 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     alignItems: "center",
     justifyContent: "center",
+  },
+  manageButton: {
+    flexDirection: "row",
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refreshButton: {
+    flexDirection: "row",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
   },
   cancelButton: {
     paddingVertical: Spacing.md,

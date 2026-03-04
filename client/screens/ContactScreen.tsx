@@ -36,26 +36,41 @@ export default function ContactScreen() {
 
     setIsSubmitting(true);
 
-    // Simulate sending - in production, this would call an API
-    setTimeout(() => {
+    try {
+      const mailtoSubject = encodeURIComponent(subject);
+      const mailtoBody = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\n${message}`);
+      const mailtoUrl = `mailto:support@smartdealsiq.com?subject=${mailtoSubject}&body=${mailtoBody}`;
+
+      const canOpen = await Linking.canOpenURL(mailtoUrl);
+      if (canOpen) {
+        await Linking.openURL(mailtoUrl);
+      }
+
       setIsSubmitting(false);
       Alert.alert(
-        "Message Sent",
-        "Thank you for contacting us! We'll get back to you within 24-48 hours.",
+        "Message Ready",
+        "Your email client has been opened with your message. Send it to complete your request. We'll get back to you within 24-48 hours.",
         [{ text: "OK", onPress: () => {
           setSubject("");
           setMessage("");
         }}]
       );
-    }, 1500);
+    } catch {
+      setIsSubmitting(false);
+      Alert.alert(
+        "Error",
+        "Could not open email client. Please email us directly at support@smartdealsiq.com",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   const contactMethods = [
     {
-      icon: "mail",
-      title: "Email",
-      value: "info@smartdealsiq.com",
-      action: () => Linking.openURL("mailto:info@smartdealsiq.com"),
+      icon: "globe",
+      title: "Support",
+      value: "smartdealsiq.com/support",
+      action: () => Linking.openURL("https://smartdealsiq.com/support/"),
     },
     {
       icon: "phone",

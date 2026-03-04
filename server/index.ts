@@ -3,6 +3,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { getDb, closeDb, testConnection } from "./db";
+import { fallbackToMemStorage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -193,32 +194,77 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
-function configureExpoAndLanding(app: express.Application) {
-  const templatePath = path.resolve(
-    process.cwd(),
-    "server",
-    "templates",
-    "landing-page.html",
-  );
-
-  // Check if template exists (won't exist in bundled production)
-  let landingPageTemplate: string | null = null;
+function loadTemplate(name: string): string | null {
+  const templatePath = path.resolve(process.cwd(), "server", "templates", name);
   try {
     if (fs.existsSync(templatePath)) {
-      landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
-      log("Serving static Expo files with dynamic manifest routing");
-    } else {
-      log("[Server] Landing page template not found - API-only mode");
+      return fs.readFileSync(templatePath, "utf-8");
     }
   } catch {
+    // Template not found
+  }
+  return null;
+}
+
+function configureExpoAndLanding(app: express.Application) {
+  const landingPageTemplate = loadTemplate("landing-page.html");
+  const billingPageTemplate = loadTemplate("vendor-billing.html");
+  const paymentSuccessTemplate = loadTemplate("payment-success.html");
+  const paymentCancelledTemplate = loadTemplate("payment-cancelled.html");
+
+  if (landingPageTemplate) {
+    log("Serving static Expo files with dynamic manifest routing");
+  } else {
     log("[Server] Landing page template not found - API-only mode");
+  }
+
+  if (billingPageTemplate) {
+    log("[Server] Vendor billing page loaded");
   }
 
   const appName = getAppName();
 
+  // Stripe Payment Links - update these with your actual Payment Link URLs
+  const PAYMENT_LINKS: Record<string, string> = {
+    boost_24h: process.env.STRIPE_LINK_BOOST_24H || "https://buy.stripe.com/5kQaEY7Rvamk2ko2NN",
+    boost_3d: process.env.STRIPE_LINK_BOOST_3D || "https://buy.stripe.com/5kQ5kE6Nrcusf7afAz",
+    boost_7d: process.env.STRIPE_LINK_BOOST_7D || "https://buy.stripe.com/4gM9AU5Jn5204swdsr",
+    pro_monthly: process.env.STRIPE_LINK_PRO_MONTHLY || "",
+    pro_annual: process.env.STRIPE_LINK_PRO_ANNUAL || "",
+    ad_30d: process.env.STRIPE_LINK_AD_30D || "",
+    ad_annual: process.env.STRIPE_LINK_AD_ANNUAL || "",
+  };
+
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
       return next();
+    }
+
+    // Vendor billing page
+    if (req.path === "/vendor/billing" && billingPageTemplate) {
+      let html = billingPageTemplate;
+      // Replace payment link placeholders with actual Stripe Payment Links
+      html = html.replace(/BOOST_24H_LINK/g, PAYMENT_LINKS.boost_24h || "#");
+      html = html.replace(/BOOST_3D_LINK/g, PAYMENT_LINKS.boost_3d || "#");
+      html = html.replace(/BOOST_7D_LINK/g, PAYMENT_LINKS.boost_7d || "#");
+      html = html.replace(/PRO_MONTHLY_LINK/g, PAYMENT_LINKS.pro_monthly || "#");
+      html = html.replace(/PRO_ANNUAL_LINK/g, PAYMENT_LINKS.pro_annual || "#");
+      html = html.replace(/AD_30D_LINK/g, PAYMENT_LINKS.ad_30d || "#");
+      html = html.replace(/AD_ANNUAL_LINK/g, PAYMENT_LINKS.ad_annual || "#");
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(html);
+    }
+
+    // Payment success page
+    if (req.path === "/payment-success" && paymentSuccessTemplate) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(paymentSuccessTemplate);
+    }
+
+    // Payment cancelled page
+    if (req.path === "/payment-cancelled" && paymentCancelledTemplate) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(paymentCancelledTemplate);
     }
 
     if (req.path !== "/" && req.path !== "/manifest") {
@@ -303,7 +349,8 @@ function setupErrorHandler(app: express.Application) {
         log("[Server] ERROR: Database connection failed in production");
         process.exit(1);
       }
-      log("[Server] Database connection failed - running without DB");
+      log("[Server] Database connection failed - falling back to in-memory storage");
+      fallbackToMemStorage();
     }
   } else {
     if (process.env.NODE_ENV === "production") {
@@ -311,6 +358,7 @@ function setupErrorHandler(app: express.Application) {
       process.exit(1);
     }
     log("[Server] No database configured - using in-memory storage");
+    fallbackToMemStorage();
   }
 
   setupCors(app);

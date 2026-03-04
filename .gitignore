@@ -68,6 +68,13 @@ electron/out/
 tmp/
 temp/
 nul
+tmpclaude-*
+
+# Build output
+server_dist/
+
+# Windows shortcuts
+*.lnk
 
 # Windows
 Thumbs.db

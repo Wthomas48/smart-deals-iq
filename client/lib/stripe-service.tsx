@@ -1,16 +1,19 @@
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { Platform } from "react-native";
+import { getApiBaseUrl } from "./api-config";
 
-// Demo mode - matches auth-context setting
-const DEMO_MODE_ENABLED = false;
+// Demo mode - only enabled in development builds
+const DEMO_MODE_ENABLED = __DEV__;
 
 // Stripe configuration
 const STRIPE_CONFIG = {
   // Replace with your Stripe publishable key
   publishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || "pk_test_xxxxx",
-  // Replace with your backend API URL
-  apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000",
+  // API URL is now dynamically resolved
+  get apiUrl(): string {
+    return getApiBaseUrl();
+  },
 };
 
 export interface PaymentIntent {
@@ -37,7 +40,7 @@ export interface StripeProduct {
   features: string[];
 }
 
-// Available subscription products
+// Available subscription products (prices managed on website, not in app)
 export const STRIPE_PRODUCTS: StripeProduct[] = [
   {
     id: "prod_free",
@@ -54,12 +57,10 @@ export const STRIPE_PRODUCTS: StripeProduct[] = [
   },
   {
     id: "prod_starter",
-    name: "7-Day Ad",
+    name: "7-Day Featured Ad",
     description: "One-time featured listing",
-    price: 7.99,
+    price: 0,
     currency: "usd",
-    interval: undefined, // One-time payment, not recurring
-    intervalCount: undefined,
     features: [
       "7 days featured listing",
       "3 active promotions",
@@ -72,7 +73,7 @@ export const STRIPE_PRODUCTS: StripeProduct[] = [
     id: "prod_monthly",
     name: "Pro Monthly",
     description: "Full-featured for growing businesses",
-    price: 29.99,
+    price: 0,
     currency: "usd",
     interval: "month",
     intervalCount: 1,
@@ -90,14 +91,13 @@ export const STRIPE_PRODUCTS: StripeProduct[] = [
   {
     id: "prod_yearly",
     name: "Pro Annual",
-    description: "Best value - save 20%",
-    price: 287.88,
+    description: "Best value for your business",
+    price: 0,
     currency: "usd",
     interval: "year",
     intervalCount: 1,
     features: [
       "Everything in Pro Monthly",
-      "Save 20% ($71.88/year)",
       "Priority feature requests",
       "Dedicated account manager",
       "Custom branding options",

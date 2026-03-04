@@ -14,6 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useData, Promotion, FOOD_CATEGORIES, FoodCategory, FlashDeal } from "@/lib/data-context";
 import { useAuth } from "@/lib/auth-context";
 import { useSubscription } from "@/lib/subscription-context";
+import { useOffline } from "@/lib/offline-context";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,7 +32,7 @@ const FLASH_DURATIONS = [
 const AI_SUGGESTIONS = [
   "Taco Tuesday: Buy 2, Get 1 Free until 2pm!",
   "Happy Hour Special: 20% off all items 3-5pm",
-  "Weekend Warrior: Family combo deal $29.99",
+  "Weekend Warrior: Family combo deal - great value!",
   "Flash Sale: First 50 customers get 50% off!",
   "Lunch Rush: Free drink with any entree 11am-1pm",
 ];
@@ -45,6 +46,9 @@ export default function PromotionsScreen() {
   const { user } = useAuth();
   const { isSubscribed, isPro, daysRemaining, plans, formatPrice } = useSubscription();
   const navigation = useNavigation<any>();
+
+  const { isOnline } = useOffline();
+  const isDemoUser = user?.id?.startsWith("demo_") || false;
 
   // Check if vendor has paid subscription (not just free tier)
   const hasPaidSubscription = isSubscribed && isPro;
@@ -107,6 +111,10 @@ export default function PromotionsScreen() {
   };
 
   const handleCreateFlashDeal = async () => {
+    if (!isOnline && !isDemoUser) {
+      Alert.alert("No Internet", "You need an internet connection to create flash deals. Please check your connection and try again.");
+      return;
+    }
     if (!flashTitle || !flashDescription || !flashOriginalPrice) return;
 
     setIsCreatingFlash(true);
@@ -169,6 +177,10 @@ export default function PromotionsScreen() {
   };
 
   const handleCreate = async () => {
+    if (!isOnline && !isDemoUser) {
+      Alert.alert("No Internet", "You need an internet connection to create promotions. Please check your connection and try again.");
+      return;
+    }
     if (!title || !description || !originalPrice || !discountedPrice) return;
 
     await addPromotion({
@@ -485,7 +497,7 @@ export default function PromotionsScreen() {
                     Unlock Promotions
                   </ThemedText>
                   <ThemedText type="small" secondary>
-                    Try our 7-Day Ad for $7.99 or subscribe to Pro for more features
+                    Subscribe to Pro on our website to unlock promotions
                   </ThemedText>
                 </View>
                 <Feather name="chevron-right" size={20} color={Colors.primary} />

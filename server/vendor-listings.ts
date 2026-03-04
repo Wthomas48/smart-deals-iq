@@ -7,6 +7,7 @@ import {
   type UpdateVendorLocation,
 } from "../shared/schema";
 import { z } from "zod";
+import { authMiddleware } from "./auth";
 
 // In-memory storage for vendor listings (replace with database in production)
 // This can be easily migrated to PostgreSQL with Drizzle when ready
@@ -99,13 +100,10 @@ export function registerVendorListingRoutes(app: Express): void {
   // ==========================================
 
   // POST /api/vendors/listing - Create a new vendor listing
-  app.post("/api/vendors/listing", (req: Request, res: Response) => {
+  app.post("/api/vendors/listing", authMiddleware, (req: Request, res: Response) => {
     try {
-      const { userId, ...listingData } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
-      }
+      const userId = req.user!.userId;
+      const { userId: _ignoredUserId, ...listingData } = req.body;
 
       // Check if vendor already has a listing
       const existingListing = Array.from(vendorListings.values()).find(
@@ -160,13 +158,9 @@ export function registerVendorListingRoutes(app: Express): void {
   });
 
   // GET /api/vendors/listing/my - Get current vendor's listing
-  app.get("/api/vendors/listing/my", (req: Request, res: Response) => {
+  app.get("/api/vendors/listing/my", authMiddleware, (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
-
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
-      }
+      const userId = req.user!.userId;
 
       const listing = Array.from(vendorListings.values()).find(
         (v) => v.userId === userId
@@ -200,14 +194,10 @@ export function registerVendorListingRoutes(app: Express): void {
   });
 
   // PUT /api/vendors/listing/:id - Update vendor listing details
-  app.put("/api/vendors/listing/:id", (req: Request, res: Response) => {
+  app.put("/api/vendors/listing/:id", authMiddleware, (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
+      const userId = req.user!.userId;
       const listingId = req.params.id;
-
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
-      }
 
       const listing = vendorListings.get(listingId);
 
@@ -243,14 +233,10 @@ export function registerVendorListingRoutes(app: Express): void {
   });
 
   // PATCH /api/vendors/listing/:id/location - Update location (rate limited)
-  app.patch("/api/vendors/listing/:id/location", (req: Request, res: Response) => {
+  app.patch("/api/vendors/listing/:id/location", authMiddleware, (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
+      const userId = req.user!.userId;
       const listingId = req.params.id;
-
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
-      }
 
       const listing = vendorListings.get(listingId);
 
@@ -307,14 +293,10 @@ export function registerVendorListingRoutes(app: Express): void {
   });
 
   // DELETE /api/vendors/listing/:id - Delete vendor listing
-  app.delete("/api/vendors/listing/:id", (req: Request, res: Response) => {
+  app.delete("/api/vendors/listing/:id", authMiddleware, (req: Request, res: Response) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
+      const userId = req.user!.userId;
       const listingId = req.params.id;
-
-      if (!userId) {
-        return res.status(401).json({ error: "User ID required" });
-      }
 
       const listing = vendorListings.get(listingId);
 

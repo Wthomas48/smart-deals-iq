@@ -24,6 +24,7 @@ import { Feather } from "@expo/vector-icons";
 import { socialShareService } from "@/lib/social-share-service";
 import { useNavigation } from "@react-navigation/native";
 import { useSubscription } from "@/lib/subscription-context";
+import { useOffline } from "@/lib/offline-context";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -91,6 +92,8 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const { hasListing, myListing, tierLimits } = useVendorListing();
   const { isSubscribed, isPro } = useSubscription();
+  const { isOnline } = useOffline();
+  const isDemoUser = user?.id?.startsWith("demo_") || false;
 
   // Check if vendor has paid subscription (not just free tier)
   const hasPaidSubscription = isSubscribed && isPro;
@@ -103,6 +106,10 @@ export default function DashboardScreen() {
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreateLunchDeal = async () => {
+    if (!isOnline && !isDemoUser) {
+      Alert.alert("No Internet", "You need an internet connection to create deals. Please check your connection and try again.");
+      return;
+    }
     if (!user?.id || !user?.name) {
       Alert.alert("Error", "Please sign in to create a deal");
       return;
@@ -421,7 +428,7 @@ export default function DashboardScreen() {
               if (!hasPaidSubscription) {
                 Alert.alert(
                   "Upgrade Required",
-                  "Subscribe to a paid plan to create lunch deals and flash promotions. Try our 7-Day Ad for just $7.99!",
+                  "Subscribe to a paid plan to create lunch deals and flash promotions. Visit our website to upgrade!",
                   [
                     { text: "Maybe Later", style: "cancel" },
                     {

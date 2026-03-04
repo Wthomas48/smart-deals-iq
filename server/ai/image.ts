@@ -1,9 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { generateImage } from "./client";
+import { authMiddleware } from "../auth";
 
 export function registerImageRoutes(app: Express): void {
   // Generate image using OpenAI DALL-E 3
-  app.post("/api/generate-image", async (req: Request, res: Response) => {
+  app.post("/api/generate-image", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { prompt } = req.body;
 
@@ -31,7 +32,7 @@ export function registerImageRoutes(app: Express): void {
   });
 
   // Generate deal flyer/banner
-  app.post("/api/generate-flyer", async (req: Request, res: Response) => {
+  app.post("/api/generate-flyer", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { dealTitle, dealDescription, businessName, discount } = req.body;
 

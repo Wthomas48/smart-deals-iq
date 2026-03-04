@@ -11,6 +11,7 @@ import { Card } from "@/components/Card";
 import { Spacer } from "@/components/Spacer";
 import { useTheme } from "@/hooks/useTheme";
 import { useData } from "@/lib/data-context";
+import { useOffline } from "@/lib/offline-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { CustomerStackParamList } from "@/navigation/CustomerTabNavigator";
@@ -23,6 +24,7 @@ export default function FavoritesScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { vendors, deals, favorites, toggleNotifyNearby, removeFavorite } = useData();
+  const { isOnline } = useOffline();
 
   const favoriteVendors = favorites.map((fav) => {
     const vendor = vendors.find((v) => v.id === fav.vendorId);

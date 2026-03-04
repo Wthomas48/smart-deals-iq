@@ -1,23 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { View, StyleSheet, TextInput, Pressable, ActivityIndicator, Image, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { Spacer } from "@/components/Spacer";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth, UserRole } from "@/lib/auth-context";
+import { useOffline } from "@/lib/offline-context";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
-type AuthMode = "choose-role" | "customer-login" | "customer-signup" | "vendor-login" | "vendor-signup" | "forgot-password";
+// Check if Google Sign-In is configured at module level
+const GOOGLE_SIGN_IN_ENABLED = !!process.env.EXPO_PUBLIC_GOOGLE_OAUTH_CLIENT_ID;
+
+type AuthMode = "choose-role" | "customer-login" | "customer-signup" | "vendor-login" | "vendor-signup" | "forgot-password" | "social-role-select";
 
 export default function OnboardingScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { login, loginAsVendor, signup, resetPassword } = useAuth();
+  const { login, loginAsVendor, signup, signInWithApple, signInWithGoogle, requestPasswordReset, confirmPasswordReset } = useAuth();
+  const { isOnline } = useOffline();
 
   const [mode, setMode] = useState<AuthMode>("choose-role");
   const [returnToMode, setReturnToMode] = useState<AuthMode>("choose-role");
@@ -25,21 +31,32 @@ export default function OnboardingScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetStep, setResetStep] = useState<"email" | "code">("email");
+  const [resetEmail, setResetEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  // Track which social provider triggered role selection
+  const pendingSocialProviderRef = useRef<"apple" | "google" | null>(null);
 
   const clearForm = () => {
     setName("");
     setEmail("");
     setPassword("");
     setNewPassword("");
+    setResetCode("");
+    setResetStep("email");
+    setResetEmail("");
     setError("");
     setSuccessMessage("");
   };
 
   const switchMode = (newMode: AuthMode) => {
     clearForm();
+    if (newMode !== "social-role-select") {
+      pendingSocialProviderRef.current = null;
+    }
     setMode(newMode);
   };
 
@@ -58,29 +75,147 @@ export default function OnboardingScreen() {
   // Helper to get user-friendly error message
   const getErrorMessage = (err: any): string => {
     const message = err?.message?.toLowerCase() || "";
+    const originalMessage = err?.message || "";
 
     if (message.includes("network") || message.includes("timeout") || message.includes("connection")) {
       return "Unable to connect. Please check your internet connection.";
     }
+    if (message.includes("registered as a")) {
+      return originalMessage;
+    }
+    if (message.includes("uses sign in with")) {
+      return originalMessage;
+    }
     if (message.includes("invalid") || message.includes("credentials") || message.includes("password")) {
       return "Invalid email or password. Please try again.";
     }
-    if (message.includes("not found") || message.includes("no user")) {
-      return "Account not found. Please sign up first.";
+    if (message.includes("not found") || message.includes("no user") || message.includes("create an account")) {
+      return originalMessage || "Account not found. Please sign up first.";
     }
-    if (message.includes("already exists") || message.includes("duplicate")) {
-      return "An account with this email already exists.";
+    if (message.includes("already exists") || message.includes("duplicate") || message.includes("already registered") || message.includes("already taken")) {
+      return originalMessage || "An account with this email already exists.";
     }
-    return err?.message || "Something went wrong. Please try again.";
+    return originalMessage || "Something went wrong. Please try again.";
+  };
+
+  // ============================================
+  // SOCIAL AUTH HANDLERS
+  // ============================================
+
+  const handleAppleSignIn = async (preselectedRole?: UserRole) => {
+    triggerHaptic();
+    setIsLoading(true);
+    setError("");
+    try {
+      const result = await signInWithApple(preselectedRole);
+      if (result.needsRole) {
+        pendingSocialProviderRef.current = "apple";
+        setMode("social-role-select");
+      }
+    } catch (err: any) {
+      // Don't show error if user cancelled
+      if (!err.message?.includes("cancelled") && !err.message?.includes("ERR_REQUEST_CANCELED")) {
+        setError(getErrorMessage(err));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async (preselectedRole?: UserRole) => {
+    triggerHaptic();
+    setIsLoading(true);
+    setError("");
+    try {
+      const result = await signInWithGoogle(preselectedRole);
+      if (result.needsRole) {
+        pendingSocialProviderRef.current = "google";
+        setMode("social-role-select");
+      }
+    } catch (err: any) {
+      if (!err.message?.includes("cancelled")) {
+        setError(getErrorMessage(err));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSocialRoleSelect = async (selectedRole: UserRole) => {
+    triggerHaptic();
+    setIsLoading(true);
+    setError("");
+    try {
+      const provider = pendingSocialProviderRef.current;
+      if (provider === "apple") {
+        await signInWithApple(selectedRole);
+      } else if (provider === "google") {
+        await signInWithGoogle(selectedRole);
+      }
+    } catch (err: any) {
+      if (!err.message?.includes("cancelled")) {
+        setError(getErrorMessage(err));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ============================================
+  // SOCIAL AUTH BUTTONS COMPONENT
+  // ============================================
+
+  const renderSocialAuthButtons = (role?: UserRole) => {
+    const showApple = Platform.OS === "ios";
+    const showGoogle = GOOGLE_SIGN_IN_ENABLED;
+
+    if (!showApple && !showGoogle) return null;
+
+    return (
+      <>
+        {showApple && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={BorderRadius.sm}
+            style={styles.appleButton}
+            onPress={() => handleAppleSignIn(role)}
+          />
+        )}
+
+        {showApple && showGoogle && <Spacer size="md" />}
+
+        {showGoogle && (
+          <Pressable
+            style={[styles.googleButton, { borderColor: theme.border }]}
+            onPress={() => handleGoogleSignIn(role)}
+            disabled={isLoading}
+          >
+            <ThemedText type="body" style={styles.googleButtonText}>
+              Sign in with Google
+            </ThemedText>
+          </Pressable>
+        )}
+
+        <View style={styles.dividerContainer}>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+          <ThemedText type="small" secondary style={styles.dividerText}>or</ThemedText>
+          <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        </View>
+      </>
+    );
   };
 
   // Customer Login
   const handleCustomerLogin = async () => {
-    if (!email || !email.includes("@")) {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
       setError("Please enter a valid email address");
       return;
     }
-    if (!password) {
+    if (!trimmedPassword) {
       setError("Please enter your password");
       return;
     }
@@ -88,7 +223,7 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     setError("");
     try {
-      await login(email, password);
+      await login(trimmedEmail, trimmedPassword);
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
@@ -98,11 +233,23 @@ export default function OnboardingScreen() {
 
   // Customer Signup
   const handleCustomerSignup = async () => {
-    if (!name || !email || !password) {
-      setError("Please fill in all fields");
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedName) {
+      setError("Please enter your full name");
       return;
     }
-    if (password.length < 8) {
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (!trimmedPassword) {
+      setError("Please enter a password");
+      return;
+    }
+    if (trimmedPassword.length < 8) {
       setError("Password must be at least 8 characters");
       return;
     }
@@ -110,16 +257,18 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     setError("");
     try {
-      // Split name into first/last and create username from email
-      const nameParts = name.trim().split(" ");
+      // Split name into first/last and create username from email with random suffix
+      const nameParts = trimmedName.split(" ");
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(" ") || undefined;
-      const username = email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+      const baseUsername = trimmedEmail.split("@")[0].replace(/[^a-z0-9]/g, "").slice(0, 24);
+      const suffix = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+      const username = (baseUsername || "user") + suffix;
 
       await signup({
-        email,
-        username,
-        password,
+        email: trimmedEmail,
+        username: username.slice(0, 30),
+        password: trimmedPassword,
         role: "customer",
         firstName,
         lastName,
@@ -133,11 +282,14 @@ export default function OnboardingScreen() {
 
   // Vendor Login
   const handleVendorLogin = async () => {
-    if (!email || !email.includes("@")) {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
       setError("Please enter a valid email address");
       return;
     }
-    if (!password) {
+    if (!trimmedPassword) {
       setError("Please enter your password");
       return;
     }
@@ -145,7 +297,7 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     setError("");
     try {
-      await loginAsVendor(email, password);
+      await loginAsVendor(trimmedEmail, trimmedPassword);
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
@@ -155,11 +307,23 @@ export default function OnboardingScreen() {
 
   // Vendor Signup
   const handleVendorSignup = async () => {
-    if (!name || !email || !password) {
-      setError("Please fill in all fields");
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedName) {
+      setError("Please enter your business name");
       return;
     }
-    if (password.length < 8) {
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (!trimmedPassword) {
+      setError("Please enter a password");
+      return;
+    }
+    if (trimmedPassword.length < 8) {
       setError("Password must be at least 8 characters");
       return;
     }
@@ -167,15 +331,17 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     setError("");
     try {
-      // Use business name as username (cleaned up)
-      const username = name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
+      // Use business name + random suffix as username to avoid collisions
+      const baseUsername = trimmedName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24);
+      const suffix = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+      const username = (baseUsername || trimmedEmail.split("@")[0]) + suffix;
 
       await signup({
-        email,
-        username: username || email.split("@")[0],
-        password,
+        email: trimmedEmail,
+        username: username.slice(0, 30),
+        password: trimmedPassword,
         role: "vendor",
-        firstName: name, // Store business name in firstName for vendors
+        firstName: trimmedName, // Store business name in firstName for vendors
       });
     } catch (err: any) {
       setError(getErrorMessage(err));
@@ -184,17 +350,44 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Password Reset
-  const handlePasswordReset = async () => {
-    if (!email || !email.includes("@")) {
+  // Password Reset Step 1: Request verification code
+  const handleRequestResetCode = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
       setError("Please enter a valid email address");
       return;
     }
-    if (!newPassword) {
+    triggerHaptic();
+    setIsLoading(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const message = await requestPasswordReset(trimmedEmail);
+      setResetEmail(trimmedEmail);
+      setResetStep("code");
+      setSuccessMessage("Check your email for the verification code.");
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Password Reset Step 2: Verify code and set new password
+  const handleConfirmReset = async () => {
+    const trimmedCode = resetCode.trim();
+    const trimmedNewPassword = newPassword.trim();
+
+    if (!trimmedCode || trimmedCode.length !== 6) {
+      setError("Please enter the 6-digit verification code");
+      return;
+    }
+    if (!trimmedNewPassword) {
       setError("Please enter a new password");
       return;
     }
-    if (newPassword.length < 8) {
+    if (trimmedNewPassword.length < 8) {
       setError("Password must be at least 8 characters");
       return;
     }
@@ -203,11 +396,11 @@ export default function OnboardingScreen() {
     setError("");
     setSuccessMessage("");
     try {
-      const message = await resetPassword(email, newPassword);
-      setSuccessMessage(message);
+      await confirmPasswordReset(resetEmail, trimmedCode, trimmedNewPassword);
+      setSuccessMessage("Password reset successfully!");
       // After 2 seconds, go back to the login screen
       setTimeout(() => {
-        setPassword(newPassword); // Pre-fill the password for convenience
+        setPassword(trimmedNewPassword);
         switchMode(returnToMode);
       }, 2000);
     } catch (err: any) {
@@ -269,6 +462,125 @@ export default function OnboardingScreen() {
         </View>
         <Feather name="chevron-right" size={24} color={theme.textSecondary} />
       </Pressable>
+
+      {/* Social Sign-In Options */}
+      {(Platform.OS === "ios" || GOOGLE_SIGN_IN_ENABLED) && (
+        <>
+          <Spacer size="2xl" />
+          <View style={styles.dividerContainer}>
+            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+            <ThemedText type="small" secondary style={styles.dividerText}>or continue with</ThemedText>
+            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+          </View>
+          <Spacer size="lg" />
+
+          {Platform.OS === "ios" && (
+            <>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={BorderRadius.sm}
+                style={styles.appleButton}
+                onPress={() => handleAppleSignIn()}
+              />
+              <Spacer size="md" />
+            </>
+          )}
+
+          {GOOGLE_SIGN_IN_ENABLED && (
+            <Pressable
+              style={[styles.googleButton, { borderColor: theme.border }]}
+              onPress={() => handleGoogleSignIn()}
+              disabled={isLoading}
+            >
+              <ThemedText type="body" style={styles.googleButtonText}>
+                Continue with Google
+              </ThemedText>
+            </Pressable>
+          )}
+        </>
+      )}
+
+      {error ? (
+        <>
+          <Spacer size="md" />
+          <ThemedText type="small" style={{ color: Colors.error }}>{error}</ThemedText>
+        </>
+      ) : null}
+    </View>
+  );
+
+  // ============================================
+  // SOCIAL ROLE SELECT SCREEN
+  // ============================================
+  const renderSocialRoleSelect = () => (
+    <View style={[styles.container, { paddingTop: insets.top + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl }]}>
+      <Pressable onPress={() => switchMode("choose-role")} style={[styles.backButton, { alignSelf: "flex-start" }]}>
+        <Feather name="arrow-left" size={24} color={theme.text} />
+      </Pressable>
+      <Spacer size="lg" />
+
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("../../assets/images/icon.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+      <ThemedText type="h2" style={styles.title}>Welcome to SmartDealsIQ!</ThemedText>
+      <ThemedText type="body" secondary style={styles.subtitle}>
+        One last step — how will you use the app?
+      </ThemedText>
+      <Spacer size="3xl" />
+
+      {/* Customer Option */}
+      <Pressable
+        style={[styles.roleCard, { backgroundColor: theme.backgroundDefault, borderColor: Colors.secondary }]}
+        onPress={() => handleSocialRoleSelect("customer")}
+        disabled={isLoading}
+      >
+        <View style={[styles.roleIcon, { backgroundColor: Colors.secondary + "20" }]}>
+          <Feather name="shopping-bag" size={32} color={Colors.secondary} />
+        </View>
+        <View style={styles.roleContent}>
+          <ThemedText type="h3">I'm a Customer</ThemedText>
+          <ThemedText type="small" secondary>Find deals from food vendors near me</ThemedText>
+        </View>
+        {isLoading ? (
+          <ActivityIndicator color={Colors.secondary} />
+        ) : (
+          <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+        )}
+      </Pressable>
+
+      <Spacer size="lg" />
+
+      {/* Vendor Option */}
+      <Pressable
+        style={[styles.roleCard, { backgroundColor: theme.backgroundDefault, borderColor: Colors.primary }]}
+        onPress={() => handleSocialRoleSelect("vendor")}
+        disabled={isLoading}
+      >
+        <View style={[styles.roleIcon, { backgroundColor: Colors.primary + "20" }]}>
+          <Feather name="briefcase" size={32} color={Colors.primary} />
+        </View>
+        <View style={styles.roleContent}>
+          <ThemedText type="h3">I'm a Vendor</ThemedText>
+          <ThemedText type="small" secondary>Manage my business and post deals</ThemedText>
+        </View>
+        {isLoading ? (
+          <ActivityIndicator color={Colors.primary} />
+        ) : (
+          <Feather name="chevron-right" size={24} color={theme.textSecondary} />
+        )}
+      </Pressable>
+
+      {error ? (
+        <>
+          <Spacer size="md" />
+          <ThemedText type="small" style={{ color: Colors.error, textAlign: "center" }}>{error}</ThemedText>
+        </>
+      ) : null}
     </View>
   );
 
@@ -287,13 +599,17 @@ export default function OnboardingScreen() {
       </Pressable>
       <Spacer size="lg" />
 
-      <View style={[styles.headerIcon, { backgroundColor: Colors.secondary + '20' }]}>
-        <Feather name="shopping-bag" size={32} color={Colors.secondary} />
-      </View>
+      <Pressable onPress={() => switchMode("choose-role")} style={styles.logoTouchable}>
+        <View style={[styles.headerIcon, { backgroundColor: Colors.secondary + '20' }]}>
+          <Feather name="shopping-bag" size={32} color={Colors.secondary} />
+        </View>
+      </Pressable>
       <Spacer size="lg" />
       <ThemedText type="h2">Customer Sign In</ThemedText>
       <ThemedText type="body" secondary>Welcome back! Sign in to find deals</ThemedText>
       <Spacer size="2xl" />
+
+      {renderSocialAuthButtons("customer")}
 
       <TextInput
         style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
@@ -357,13 +673,17 @@ export default function OnboardingScreen() {
       </Pressable>
       <Spacer size="lg" />
 
-      <View style={[styles.headerIcon, { backgroundColor: Colors.secondary + '20' }]}>
-        <Feather name="shopping-bag" size={32} color={Colors.secondary} />
-      </View>
+      <Pressable onPress={() => switchMode("choose-role")} style={styles.logoTouchable}>
+        <View style={[styles.headerIcon, { backgroundColor: Colors.secondary + '20' }]}>
+          <Feather name="shopping-bag" size={32} color={Colors.secondary} />
+        </View>
+      </Pressable>
       <Spacer size="lg" />
       <ThemedText type="h2">Create Customer Account</ThemedText>
       <ThemedText type="body" secondary>Join SmartDealsIQ™ to find great deals</ThemedText>
       <Spacer size="2xl" />
+
+      {renderSocialAuthButtons("customer")}
 
       <TextInput
         style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
@@ -430,13 +750,17 @@ export default function OnboardingScreen() {
       </Pressable>
       <Spacer size="lg" />
 
-      <View style={[styles.headerIcon, { backgroundColor: Colors.primary + '20' }]}>
-        <Feather name="briefcase" size={32} color={Colors.primary} />
-      </View>
+      <Pressable onPress={() => switchMode("choose-role")} style={styles.logoTouchable}>
+        <View style={[styles.headerIcon, { backgroundColor: Colors.primary + '20' }]}>
+          <Feather name="briefcase" size={32} color={Colors.primary} />
+        </View>
+      </Pressable>
       <Spacer size="lg" />
       <ThemedText type="h2">Vendor Sign In</ThemedText>
       <ThemedText type="body" secondary>Manage your business and deals</ThemedText>
       <Spacer size="2xl" />
+
+      {renderSocialAuthButtons("vendor")}
 
       <TextInput
         style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
@@ -500,13 +824,17 @@ export default function OnboardingScreen() {
       </Pressable>
       <Spacer size="lg" />
 
-      <View style={[styles.headerIcon, { backgroundColor: Colors.primary + '20' }]}>
-        <Feather name="briefcase" size={32} color={Colors.primary} />
-      </View>
+      <Pressable onPress={() => switchMode("choose-role")} style={styles.logoTouchable}>
+        <View style={[styles.headerIcon, { backgroundColor: Colors.primary + '20' }]}>
+          <Feather name="briefcase" size={32} color={Colors.primary} />
+        </View>
+      </Pressable>
       <Spacer size="lg" />
       <ThemedText type="h2">Create Vendor Account</ThemedText>
       <ThemedText type="body" secondary>Set up your business on SmartDealsIQ™</ThemedText>
       <Spacer size="2xl" />
+
+      {renderSocialAuthButtons("vendor")}
 
       <TextInput
         style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
@@ -559,7 +887,7 @@ export default function OnboardingScreen() {
   );
 
   // ============================================
-  // FORGOT PASSWORD SCREEN
+  // FORGOT PASSWORD SCREEN (2-step flow)
   // ============================================
   const renderForgotPassword = () => (
     <KeyboardAwareScrollViewCompat
@@ -568,41 +896,62 @@ export default function OnboardingScreen() {
         { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
       ]}
     >
-      <Pressable onPress={() => switchMode(returnToMode)} style={styles.backButton}>
+      <Pressable onPress={() => resetStep === "code" ? setResetStep("email") : switchMode(returnToMode)} style={styles.backButton}>
         <Feather name="arrow-left" size={24} color={theme.text} />
       </Pressable>
       <Spacer size="lg" />
 
-      <View style={[styles.headerIcon, { backgroundColor: Colors.warning + '20' }]}>
-        <Feather name="lock" size={32} color={Colors.warning} />
-      </View>
+      <Pressable onPress={() => switchMode("choose-role")} style={styles.logoTouchable}>
+        <View style={[styles.headerIcon, { backgroundColor: Colors.warning + '20' }]}>
+          <Feather name="lock" size={32} color={Colors.warning} />
+        </View>
+      </Pressable>
       <Spacer size="lg" />
       <ThemedText type="h2">Reset Password</ThemedText>
       <ThemedText type="body" secondary style={{ textAlign: 'center' }}>
-        Enter your email and a new password to reset your account
+        {resetStep === "email"
+          ? "Enter your email to receive a verification code"
+          : "Enter the 6-digit code sent to your email"}
       </ThemedText>
       <Spacer size="2xl" />
 
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
-        placeholder="Email"
-        placeholderTextColor={theme.textSecondary}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoComplete="email"
-      />
-      <Spacer size="md" />
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
-        placeholder="New Password"
-        placeholderTextColor={theme.textSecondary}
-        value={newPassword}
-        onChangeText={setNewPassword}
-        secureTextEntry
-        autoComplete="new-password"
-      />
+      {resetStep === "email" ? (
+        <>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+            placeholder="Email"
+            placeholderTextColor={theme.textSecondary}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+          />
+        </>
+      ) : (
+        <>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+            placeholder="6-digit code"
+            placeholderTextColor={theme.textSecondary}
+            value={resetCode}
+            onChangeText={setResetCode}
+            keyboardType="number-pad"
+            maxLength={6}
+            autoComplete="one-time-code"
+          />
+          <Spacer size="md" />
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+            placeholder="New Password"
+            placeholderTextColor={theme.textSecondary}
+            value={newPassword}
+            onChangeText={setNewPassword}
+            secureTextEntry
+            autoComplete="new-password"
+          />
+        </>
+      )}
 
       {error ? (
         <>
@@ -619,9 +968,23 @@ export default function OnboardingScreen() {
       ) : null}
 
       <Spacer size="2xl" />
-      <Button onPress={handlePasswordReset} disabled={isLoading || !!successMessage}>
-        {isLoading ? <ActivityIndicator color="#fff" /> : "Reset Password"}
-      </Button>
+      {resetStep === "email" ? (
+        <Button onPress={handleRequestResetCode} disabled={isLoading}>
+          {isLoading ? <ActivityIndicator color="#fff" /> : "Send Verification Code"}
+        </Button>
+      ) : (
+        <>
+          <Button onPress={handleConfirmReset} disabled={isLoading || !!successMessage}>
+            {isLoading ? <ActivityIndicator color="#fff" /> : "Reset Password"}
+          </Button>
+          <Spacer size="md" />
+          <Pressable onPress={() => { setError(""); setSuccessMessage(""); handleRequestResetCode(); }}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
+              Didn't receive a code? Resend
+            </ThemedText>
+          </Pressable>
+        </>
+      )}
       <Spacer size="lg" />
       <Pressable onPress={() => switchMode(returnToMode)}>
         <ThemedText type="body" style={{ color: Colors.primary, textAlign: "center" }}>
@@ -634,6 +997,7 @@ export default function OnboardingScreen() {
   return (
     <ThemedView style={styles.mainContainer}>
       {mode === "choose-role" && renderChooseRole()}
+      {mode === "social-role-select" && renderSocialRoleSelect()}
       {mode === "customer-login" && renderCustomerLogin()}
       {mode === "customer-signup" && renderCustomerSignup()}
       {mode === "vendor-login" && renderVendorLogin()}
@@ -707,6 +1071,8 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  logoTouchable: {
     alignSelf: 'center',
   },
   input: {
@@ -715,5 +1081,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     fontSize: 16,
     borderWidth: 1,
+  },
+  // Social auth styles
+  appleButton: {
+    width: "100%",
+    height: 50,
+  },
+  googleButton: {
+    width: "100%",
+    height: 50,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  googleButtonText: {
+    fontWeight: "600",
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: Spacing.lg,
+    width: "100%",
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: Spacing.md,
   },
 });

@@ -12,6 +12,7 @@ import { Colors } from "@/constants/theme";
 import DealsFeedScreen from "@/screens/customer/DealsFeedScreen";
 import MapScreen from "@/screens/customer/MapScreen";
 import FavoritesScreen from "@/screens/customer/FavoritesScreen";
+import RewardsScreen from "@/screens/customer/RewardsScreen";
 import VendorDetailScreen from "@/screens/customer/VendorDetailScreen";
 import DealDetailScreen from "@/screens/customer/DealDetailScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
@@ -25,6 +26,7 @@ export type CustomerStackParamList = {
   DealsFeed: undefined;
   Map: undefined;
   Favorites: undefined;
+  Rewards: undefined;
   VendorDetail: { vendorId: string };
   DealDetail: { dealId: string };
   Profile: undefined;
@@ -39,6 +41,7 @@ export type CustomerTabParamList = {
   DealsTab: undefined;
   MapTab: undefined;
   FavoritesTab: undefined;
+  RewardsTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -119,6 +122,22 @@ function FavoritesStack() {
         options={{
           headerTitle: "Vendor Details",
           headerTransparent: false,
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function RewardsStack() {
+  const screenOptions = useScreenOptions();
+
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen
+        name="Rewards"
+        component={RewardsScreen}
+        options={{
+          headerTitle: "Rewards",
         }}
       />
     </Stack.Navigator>
@@ -231,6 +250,16 @@ export default function CustomerTabNavigator() {
           title: "Favorites",
           tabBarIcon: ({ color, size }) => (
             <Feather name="heart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="RewardsTab"
+        component={RewardsStack}
+        options={{
+          title: "Rewards",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="award" size={size} color={color} />
           ),
         }}
       />

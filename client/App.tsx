@@ -21,11 +21,12 @@ import { OfflineProvider } from "@/lib/offline-context";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LocationNotificationBridge } from "@/components/LocationNotificationBridge";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
+    <ThemeProvider>
+      <ErrorBoundary>
         <PreferencesProvider>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
@@ -42,6 +43,7 @@ export default function App() {
                                 <NavigationContainer>
                                   <RootStackNavigator />
                                 </NavigationContainer>
+                                <NetworkStatusBanner />
                                 <ThemedStatusBar />
                               </KeyboardProvider>
                             </GestureHandlerRootView>
@@ -55,8 +57,8 @@ export default function App() {
             </AuthProvider>
           </QueryClientProvider>
         </PreferencesProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 

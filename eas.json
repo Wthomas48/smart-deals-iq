@@ -19,7 +19,7 @@
         "EXPO_PUBLIC_API_URL": "http://localhost:5000"
       },
       "ios": {
-        "simulator": true
+        "simulator": false
       },
       "android": {
         "buildType": "apk",
@@ -43,7 +43,7 @@
     "production": {
       "extends": "base",
       "distribution": "store",
-      "autoIncrement": true,
+      "autoIncrement": false,
       "env": {
         "APP_VARIANT": "production"
       },
@@ -61,9 +61,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "",
-        "ascAppId": "",
-        "appleTeamId": ""
+        "appleId": "swetdenast@yahoo.com",
+        "ascAppId": "TODO_GET_FROM_APP_STORE_CONNECT",
+        "appleTeamId": "U34AWPZM9P"
       },
       "android": {
         "serviceAccountKeyPath": "./google-play-service-account.json",

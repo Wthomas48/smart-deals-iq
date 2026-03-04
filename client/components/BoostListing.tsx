@@ -34,7 +34,7 @@ const BOOST_OPTIONS: BoostOption[] = [
   {
     id: "basic",
     name: "Basic Boost",
-    price: 4.99,
+    price: 0,
     duration: 24,
     description: "24 hours of increased visibility",
     features: ["Priority in search", "Boost badge"],
@@ -44,7 +44,7 @@ const BOOST_OPTIONS: BoostOption[] = [
   {
     id: "premium",
     name: "Premium Boost",
-    price: 14.99,
+    price: 0,
     duration: 72,
     description: "3 days of maximum exposure",
     features: ["Top of search", "Featured badge", "Push notifications", "Analytics"],
@@ -55,7 +55,7 @@ const BOOST_OPTIONS: BoostOption[] = [
   {
     id: "spotlight",
     name: "Spotlight",
-    price: 29.99,
+    price: 0,
     duration: 168,
     description: "Be the featured truck of the week",
     features: ["Homepage feature", "Spotlight banner", "Social shoutout", "Premium analytics"],
@@ -88,12 +88,12 @@ export function BoostListing() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     Alert.alert(
-      "Confirm Boost Purchase",
-      `Purchase ${option.name} for ${formatPrice(option.price)}?`,
+      "Boost Your Listing",
+      `Activate ${option.name}? This feature is included with your Pro subscription.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Purchase",
+          text: "Activate",
           onPress: async () => {
             setLoading(true);
             try {
@@ -282,7 +282,7 @@ export function BoostListing() {
         ) : (
           <>
             <Feather
-              name="credit-card"
+              name="zap"
               size={20}
               color={selectedBoost ? "#fff" : theme.textSecondary}
             />
@@ -294,7 +294,7 @@ export function BoostListing() {
                 fontWeight: "600",
               }}
             >
-              {selectedBoost ? "Purchase Boost" : "Select a Boost"}
+              {selectedBoost ? "Activate Boost" : "Select a Boost"}
             </ThemedText>
           </>
         )}
@@ -305,7 +305,7 @@ export function BoostListing() {
       <View style={styles.securityNote}>
         <Feather name="lock" size={14} color={theme.textSecondary} />
         <ThemedText type="caption" secondary style={{ marginLeft: Spacing.xs }}>
-          Secure payment via Stripe
+          Included with your Pro subscription
         </ThemedText>
       </View>
     </View>

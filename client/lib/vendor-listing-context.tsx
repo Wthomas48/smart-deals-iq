@@ -1,12 +1,30 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "./auth-context";
+import { getApiBaseUrl } from "./api-config";
 
 // Demo mode - matches auth-context setting
-const DEMO_MODE_ENABLED = false;
+const DEMO_MODE_ENABLED = true;
 
 // Vendor listing types matching server schema
-export type VendorCategory = "food_truck" | "restaurant" | "vendor";
+export type VendorCategory =
+  // Food & Beverage
+  | "food_truck" | "restaurant" | "vendor" | "bakery" | "cafe"
+  | "bar_lounge" | "juice_smoothie" | "catering" | "food_delivery"
+  // Retail & Shopping
+  | "boutique" | "jewelry" | "electronics" | "thrift_vintage"
+  | "smoke_vape" | "pet_store"
+  // Health & Beauty
+  | "salon" | "barbershop" | "nail_spa" | "massage"
+  | "gym_fitness" | "tattoo_piercing"
+  // Auto & Services
+  | "auto_detailing" | "auto_repair" | "tire_shop"
+  // Home & Professional
+  | "cleaning" | "handyman" | "landscaping" | "photography" | "printing"
+  // Entertainment
+  | "nightclub" | "escape_room" | "event_venue"
+  // Cannabis
+  | "dispensary";
 export type VendorTier = "free";
 
 export interface ProductPhoto {
@@ -110,7 +128,7 @@ interface VendorListingContextType {
 
 const VendorListingContext = createContext<VendorListingContextType | undefined>(undefined);
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+// API_BASE_URL is now dynamically resolved via getApiBaseUrl()
 const VENDOR_LISTING_CACHE_KEY = "@smartdealsiq_vendor_listing";
 const PUBLIC_VENDORS_CACHE_KEY = "@smartdealsiq_public_vendors";
 
@@ -123,7 +141,7 @@ const DEFAULT_TIER_LIMITS: TierLimits = {
 };
 
 export function VendorListingProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, accessToken } = useAuth();
 
   // Vendor's own listing state
   const [myListing, setMyListing] = useState<VendorListing | null>(null);
@@ -177,9 +195,9 @@ export function VendorListingProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-      const response = await fetch(`${API_BASE_URL}/api/vendors/listing/my`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/vendors/listing/my`, {
         headers: {
-          "x-user-id": user.id,
+          "Authorization": `Bearer ${accessToken}`,
         },
         signal: controller.signal,
       });
@@ -238,7 +256,7 @@ export function VendorListingProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoadingMyListing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, accessToken]);
 
   // Fetch vendor's listing when authenticated as vendor
   // Only fetch when auth is not loading and user is a vendor
@@ -317,15 +335,13 @@ export function VendorListingProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`${API_BASE_URL}/api/vendors/listing`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/vendors/listing`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({
-          userId: user.id,
-          ...data,
-        }),
+        body: JSON.stringify(data),
         signal: controller.signal,
       });
 
@@ -369,11 +385,11 @@ export function VendorListingProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`${API_BASE_URL}/api/vendors/listing/${myListing.id}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/vendors/listing/${myListing.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": user.id,
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify(updates),
         signal: controller.signal,
@@ -436,11 +452,11 @@ export function VendorListingProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`${API_BASE_URL}/api/vendors/listing/${myListing.id}/location`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/vendors/listing/${myListing.id}/location`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": user.id,
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify(data),
         signal: controller.signal,
@@ -547,10 +563,10 @@ export function VendorListingProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(`${API_BASE_URL}/api/vendors/listing/${myListing.id}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/vendors/listing/${myListing.id}`, {
         method: "DELETE",
         headers: {
-          "x-user-id": user.id,
+          "Authorization": `Bearer ${accessToken}`,
         },
         signal: controller.signal,
       });
@@ -592,7 +608,7 @@ export function VendorListingProvider({ children }: { children: ReactNode }) {
     setIsLoadingPublicVendors(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/vendors/public`);
+      const response = await fetch(`${getApiBaseUrl()}/api/vendors/public`);
 
       if (response.ok) {
         const data = await response.json();

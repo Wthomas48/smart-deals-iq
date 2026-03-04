@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "@/lib/auth-context";
@@ -16,19 +16,45 @@ export type RootStackParamList = {
   VendorMain: undefined;
 };
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const GuestStack = createNativeStackNavigator<RootStackParamList>();
+const CustomerStack = createNativeStackNavigator<RootStackParamList>();
+const VendorStack = createNativeStackNavigator<RootStackParamList>();
+
+function GuestNavigator({ screenOptions }: { screenOptions: any }) {
+  return (
+    <GuestStack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
+      <GuestStack.Screen name="Onboarding" component={OnboardingScreen} />
+    </GuestStack.Navigator>
+  );
+}
+
+function CustomerNavigator({ screenOptions }: { screenOptions: any }) {
+  return (
+    <CustomerStack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
+      <CustomerStack.Screen name="CustomerMain" component={CustomerTabNavigator} />
+      <CustomerStack.Screen name="Onboarding" component={OnboardingScreen} />
+    </CustomerStack.Navigator>
+  );
+}
+
+function VendorNavigator({ screenOptions }: { screenOptions: any }) {
+  return (
+    <VendorStack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
+      <VendorStack.Screen name="VendorMain" component={VendorTabNavigator} />
+      <VendorStack.Screen name="Onboarding" component={OnboardingScreen} />
+    </VendorStack.Navigator>
+  );
+}
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { theme } = useTheme();
   const { user, isLoading, isAuthenticated } = useAuth();
 
-  // Debug logging for auth state (development only)
   if (__DEV__) {
-    console.log("[RootStackNavigator] Auth state changed:", {
+    console.log("[RootStackNavigator] Auth state:", {
       isLoading,
       isAuthenticated,
-      authState: !isAuthenticated ? "guest" : user?.role === "vendor" ? "vendor" : "customer",
       userRole: user?.role,
       userEmail: user?.email,
     });
@@ -42,40 +68,18 @@ export default function RootStackNavigator() {
     );
   }
 
-  // Determine which screen set to show based on auth state
-  const authState = !isAuthenticated ? "guest" : user?.role === "vendor" ? "vendor" : "customer";
+  // Conditionally render entirely separate navigator trees.
+  // This guarantees a full unmount/remount when auth state changes,
+  // avoiding stale navigation state between customer/vendor/guest.
+  if (!isAuthenticated) {
+    return <GuestNavigator screenOptions={screenOptions} />;
+  }
 
-  // Navigation logic:
-  // - Authenticated vendors -> VendorTabNavigator (vendor dashboard)
-  // - Authenticated customers -> CustomerTabNavigator
-  // - Not authenticated -> Show Onboarding/Login screen first
-  return (
-    <Stack.Navigator
-      key={authState}  // Force re-render when auth state changes
-      screenOptions={{ ...screenOptions, headerShown: false }}
-    >
-      {!isAuthenticated ? (
-        // Not logged in - show login screen first
-        <>
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          <Stack.Screen name="CustomerMain" component={CustomerTabNavigator} />
-          <Stack.Screen name="VendorMain" component={VendorTabNavigator} />
-        </>
-      ) : user?.role === "vendor" ? (
-        // Authenticated vendor - show vendor dashboard
-        <>
-          <Stack.Screen name="VendorMain" component={VendorTabNavigator} />
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        </>
-      ) : (
-        // Authenticated customer - show customer app
-        <>
-          <Stack.Screen name="CustomerMain" component={CustomerTabNavigator} />
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        </>
-      )}
-    </Stack.Navigator>
-  );
+  if (user?.role === "vendor") {
+    return <VendorNavigator screenOptions={screenOptions} />;
+  }
+
+  return <CustomerNavigator screenOptions={screenOptions} />;
 }
 
 const styles = StyleSheet.create({

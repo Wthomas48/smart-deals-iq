@@ -2,10 +2,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "./auth-context";
 import {
-  STRIPE_PRODUCTS,
-  StripeProduct,
-  createCheckoutSession,
-  openStripeCheckout,
   simulatePayment,
   cancelSubscription as stripeCancelSubscription,
   formatPrice,
@@ -40,11 +36,11 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   },
   {
     id: "prod_starter",
-    name: "7-Day Ad",
-    price: 7.99,
+    name: "7-Day Featured Ad",
+    price: 0,
     duration: 7,
     description: "One-time featured listing",
-    interval: undefined, // One-time payment, not recurring
+    interval: undefined,
     features: [
       "7 days featured listing",
       "3 active promotions",
@@ -56,7 +52,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "prod_monthly",
     name: "Pro Monthly",
-    price: 29.99,
+    price: 0,
     duration: 30,
     description: "Full-featured for growing businesses",
     interval: "month",
@@ -74,14 +70,12 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "prod_yearly",
     name: "Pro Annual",
-    price: 287.88,
+    price: 0,
     duration: 365,
-    description: "Best value - save 20%",
+    description: "Best value for your business",
     interval: "year",
-    savings: 20,
     features: [
       "Everything in Pro Monthly",
-      "Save 20% ($71.88/year)",
       "Priority feature requests",
       "Dedicated account manager",
       "Custom branding options",
@@ -118,8 +112,8 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 
 const STORAGE_KEY = "@smartdealsiq_subscription";
 
-// Demo mode - set to true for testing without Stripe, false for production
-const USE_DEMO_MODE = false;
+// Demo mode - only enabled in development builds
+const USE_DEMO_MODE = __DEV__;
 
 // Enable all features - set to true for full access, false to enforce subscription checks
 const ENABLE_ALL_FEATURES = false;
@@ -179,15 +173,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   };
 
   const subscribe = async (planId: string, vendorEmail?: string): Promise<boolean> => {
-    const plan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
-    if (!plan) {
-      console.error("[Subscription] Plan not found:", planId);
-      return false;
-    }
-
     // Get user info from auth
     const userId = user?.id || "guest_user";
-    const userEmail = vendorEmail || user?.email || "guest@example.com";
+
+    // Refresh status from server
+    if (planId === "refresh") {
+      await loadSubscription();
+      return true;
+    }
 
     // Free tier doesn't require payment
     if (planId === "prod_free") {
@@ -199,13 +192,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       };
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSubscription));
       setSubscription(newSubscription);
-      if (__DEV__) console.log("[Subscription] Free tier activated for:", userEmail);
+      if (__DEV__) console.log("[Subscription] Free tier activated");
       return true;
     }
 
     try {
       if (USE_DEMO_MODE) {
-        // Demo mode - simulate payment
+        // Demo mode - simulate for development/testing
         if (__DEV__) console.log("[Subscription] Using demo mode for payment simulation");
         const result = await simulatePayment(planId, userId);
 
@@ -219,47 +212,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSubscription));
         setSubscription(newSubscription);
-        if (__DEV__) console.log("[Subscription] Demo subscription created:", planId);
         return true;
       } else {
-        // Real Stripe checkout
-        if (__DEV__) console.log("[Subscription] Creating Stripe checkout session for:", userEmail);
-        const session = await createCheckoutSession(planId, userId, userEmail);
-
-        if (!session.url) {
-          console.error("[Subscription] No checkout URL returned");
-          return false;
-        }
-
-        if (__DEV__) console.log("[Subscription] Opening Stripe checkout:", session.url);
-        const opened = await openStripeCheckout(session.url);
-
-        if (opened) {
-          // Payment verification happens via webhook on server
-          // For immediate feedback, we optimistically set subscription
-          const startDate = new Date();
-          const endDate = new Date();
-          if (plan.interval === "year") {
-            endDate.setFullYear(endDate.getFullYear() + 1);
-          } else {
-            endDate.setMonth(endDate.getMonth() + 1);
-          }
-
-          const newSubscription: Subscription = {
-            planId,
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            isActive: true,
-            stripeSubscriptionId: session.id,
-          };
-
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSubscription));
-          setSubscription(newSubscription);
-          if (__DEV__) console.log("[Subscription] Stripe checkout initiated:", planId);
-          return true;
-        }
-        if (__DEV__) console.log("[Subscription] Stripe checkout was cancelled or failed");
-        return false;
+        // Production: check server for subscription status after website payment
+        await loadSubscription();
+        return subscription?.isActive ?? false;
       }
     } catch (error) {
       console.error("[Subscription] Error:", error);
@@ -269,11 +226,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const cancelSubscription = async () => {
     try {
-      if (subscription?.stripeSubscriptionId && !USE_DEMO_MODE) {
-        await stripeCancelSubscription(subscription.stripeSubscriptionId);
+      if (USE_DEMO_MODE) {
+        // Demo mode - clear locally
+        await AsyncStorage.removeItem(STORAGE_KEY);
+        setSubscription(null);
+      } else {
+        // Production - cancellation handled on website, just refresh status
+        await loadSubscription();
       }
-      await AsyncStorage.removeItem(STORAGE_KEY);
-      setSubscription(null);
     } catch (error) {
       console.error("Cancel subscription error:", error);
     }

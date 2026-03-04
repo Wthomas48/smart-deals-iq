@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>SmartDealsIQ - Vendor Billing</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Upgrade your SmartDealsIQ vendor subscription" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #f8f9fa;
+        color: #1a1a2e;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        padding: 32px 20px 40px;
+        text-align: center;
+      }
+      .header h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+      .header p { font-size: 14px; opacity: 0.85; }
+      .vendor-email {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 4px 12px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 20px;
+        font-size: 13px;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: -20px auto 0;
+        padding: 0 16px 40px;
+      }
+
+      .section-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 28px 0 14px;
+        color: #1a1a2e;
+      }
+      .section-subtitle {
+        font-size: 13px;
+        color: #666;
+        margin: -10px 0 14px;
+      }
+
+      .plan-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 12px;
+        border: 1px solid #e5e7eb;
+        position: relative;
+        overflow: hidden;
+      }
+      .plan-card.popular {
+        border-color: #6366f1;
+        border-width: 2px;
+      }
+      .popular-badge {
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: #6366f1;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-bottom-left-radius: 8px;
+      }
+      .best-value-badge {
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: #10b981;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-bottom-left-radius: 8px;
+      }
+
+      .plan-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+      }
+      .plan-name { font-size: 16px; font-weight: 700; }
+      .plan-desc { font-size: 13px; color: #666; margin-top: 2px; }
+      .plan-price { text-align: right; }
+      .plan-price .amount { font-size: 22px; font-weight: 800; color: #1a1a2e; }
+      .plan-price .period { font-size: 12px; color: #888; }
+
+      .plan-features {
+        list-style: none;
+        margin-bottom: 16px;
+      }
+      .plan-features li {
+        font-size: 13px;
+        color: #444;
+        padding: 3px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .plan-features li::before {
+        content: "";
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        background: #10b981;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat;
+        flex-shrink: 0;
+      }
+
+      .buy-btn {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+        transition: opacity 0.15s, transform 0.1s;
+      }
+      .buy-btn:hover { opacity: 0.9; }
+      .buy-btn:active { transform: scale(0.98); }
+
+      .buy-btn.primary {
+        background: #6366f1;
+        color: #fff;
+      }
+      .buy-btn.success {
+        background: #10b981;
+        color: #fff;
+      }
+      .buy-btn.outline {
+        background: transparent;
+        color: #6366f1;
+        border: 2px solid #6366f1;
+      }
+
+      .divider {
+        height: 1px;
+        background: #e5e7eb;
+        margin: 24px 0;
+      }
+
+      .footer {
+        text-align: center;
+        padding: 24px 16px;
+        font-size: 12px;
+        color: #999;
+      }
+      .footer a { color: #6366f1; text-decoration: none; }
+
+      .lock-icon {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: #888;
+        margin-top: 12px;
+      }
+      .lock-icon svg { width: 14px; height: 14px; }
+
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: rgba(255,255,255,0.8);
+        text-decoration: none;
+        font-size: 14px;
+        margin-bottom: 16px;
+      }
+      .back-link:hover { color: #fff; }
+
+      /* Dark mode */
+      @media (prefers-color-scheme: dark) {
+        body { background: #0f0f14; color: #e0e0e0; }
+        .header { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+        .section-title { color: #e0e0e0; }
+        .plan-card { background: #1a1a24; border-color: #2a2a3a; }
+        .plan-card.popular { border-color: #6366f1; }
+        .plan-name { color: #f0f0f0; }
+        .plan-desc { color: #888; }
+        .plan-price .amount { color: #f0f0f0; }
+        .plan-features li { color: #aaa; }
+        .divider { background: #2a2a3a; }
+        .footer { color: #666; }
+      }
+
+      /* Desktop */
+      @media (min-width: 768px) {
+        .header { padding: 48px 20px 56px; }
+        .header h1 { font-size: 32px; }
+        .container { max-width: 700px; }
+        .boost-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+        .boost-grid .plan-card { margin-bottom: 0; }
+        .boost-grid .plan-top { flex-direction: column; }
+        .boost-grid .plan-price { text-align: left; margin-top: 8px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>SmartDealsIQ</h1>
+      <p>Vendor Subscription & Billing</p>
+      <div class="vendor-email" id="vendor-email" style="display:none;"></div>
+    </div>
+
+    <div class="container">
+      <!-- Boost Section -->
+      <h2 class="section-title">Boost Your Listing</h2>
+      <p class="section-subtitle">One-time boosts to increase visibility</p>
+
+      <div class="boost-grid">
+        <div class="plan-card">
+          <div class="plan-top">
+            <div>
+              <div class="plan-name">24-Hour Boost</div>
+              <div class="plan-desc">Quick visibility bump</div>
+            </div>
+            <div class="plan-price">
+              <div class="amount">$1.99</div>
+              <div class="period">one-time</div>
+            </div>
+          </div>
+          <ul class="plan-features">
+            <li>Priority in search results</li>
+            <li>Boost badge on listing</li>
+            <li>24 hours of exposure</li>
+          </ul>
+          <a href="BOOST_24H_LINK" class="buy-btn outline boost-link" data-product="boost_24h">Buy Boost</a>
+        </div>
+
+        <div class="plan-card popular">
+          <div class="popular-badge">POPULAR</div>
+          <div class="plan-top">
+            <div>
+              <div class="plan-name">3-Day Boost</div>
+              <div class="plan-desc">Extended visibility</div>
+            </div>
+            <div class="plan-price">
+              <div class="amount">$4.99</div>
+              <div class="period">one-time</div>
+            </div>
+          </div>
+          <ul class="plan-features">
+            <li>Top of search results</li>
+            <li>Featured badge</li>
+            <li>Push notifications to nearby users</li>
+            <li>3 days of exposure</li>
+          </ul>
+          <a href="BOOST_3D_LINK" class="buy-btn primary boost-link" data-product="boost_3d">Buy Boost</a>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-top">
+            <div>
+              <div class="plan-name">7-Day Featured</div>
+              <div class="plan-desc">Maximum exposure</div>
+            </div>
+            <div class="plan-price">
+              <div class="amount">$7.99</div>
+              <div class="period">one-time</div>
+            </div>
+          </div>
+          <ul class="plan-features">
+            <li>Homepage featured spot</li>
+            <li>Spotlight banner</li>
+            <li>Premium analytics</li>
+            <li>7 days of exposure</li>
+          </ul>
+          <a href="BOOST_7D_LINK" class="buy-btn outline boost-link" data-product="boost_7d">Buy Boost</a>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Pro Subscription Section -->
+      <h2 class="section-title">Pro Subscription Plans</h2>
+      <p class="section-subtitle">Unlock all premium features for your business</p>
+
+      <div class="plan-card popular">
+        <div class="popular-badge">MOST POPULAR</div>
+        <div class="plan-top">
+          <div>
+            <div class="plan-name">Pro Monthly</div>
+            <div class="plan-desc">Full-featured for growing businesses</div>
+          </div>
+          <div class="plan-price">
+            <div class="amount">$19.99</div>
+            <div class="period">/month</div>
+          </div>
+        </div>
+        <ul class="plan-features">
+          <li>Unlimited promotions</li>
+          <li>Flash deal notifications</li>
+          <li>Advanced analytics dashboard</li>
+          <li>Priority support</li>
+          <li>Barcode/QR generator</li>
+          <li>Flyer & menu designer</li>
+          <li>Voice input for promotions</li>
+          <li>AI-powered suggestions</li>
+        </ul>
+        <a href="PRO_MONTHLY_LINK" class="buy-btn primary sub-link" data-product="pro_monthly">Subscribe - $19.99/mo</a>
+      </div>
+
+      <div class="plan-card">
+        <div class="best-value-badge">BEST VALUE</div>
+        <div class="plan-top">
+          <div>
+            <div class="plan-name">Pro Annual</div>
+            <div class="plan-desc">Save over 37% vs monthly</div>
+          </div>
+          <div class="plan-price">
+            <div class="amount">$149.99</div>
+            <div class="period">/year</div>
+          </div>
+        </div>
+        <ul class="plan-features">
+          <li>Everything in Pro Monthly</li>
+          <li>Priority feature requests</li>
+          <li>Dedicated account manager</li>
+          <li>Custom branding options</li>
+          <li>API access for integrations</li>
+          <li>Multi-location support</li>
+          <li>White-label options</li>
+        </ul>
+        <a href="PRO_ANNUAL_LINK" class="buy-btn success sub-link" data-product="pro_annual">Subscribe - $149.99/yr</a>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Ad Plans Section -->
+      <h2 class="section-title">Featured Ad Plans</h2>
+      <p class="section-subtitle">Extended advertising for your business</p>
+
+      <div class="plan-card">
+        <div class="plan-top">
+          <div>
+            <div class="plan-name">30-Day Featured Ad</div>
+            <div class="plan-desc">One month of premium visibility</div>
+          </div>
+          <div class="plan-price">
+            <div class="amount">$29.99</div>
+            <div class="period">one-time</div>
+          </div>
+        </div>
+        <ul class="plan-features">
+          <li>30 days featured listing</li>
+          <li>3 active promotions</li>
+          <li>Unlimited location updates</li>
+          <li>Featured map pin</li>
+          <li>Basic analytics</li>
+        </ul>
+        <a href="AD_30D_LINK" class="buy-btn outline sub-link" data-product="ad_30d">Buy 30-Day Ad</a>
+      </div>
+
+      <div class="plan-card">
+        <div class="best-value-badge">BEST VALUE</div>
+        <div class="plan-top">
+          <div>
+            <div class="plan-name">Annual Platform Subscription</div>
+            <div class="plan-desc">Full year of premium advertising</div>
+          </div>
+          <div class="plan-price">
+            <div class="amount">$359.88</div>
+            <div class="period">/year</div>
+          </div>
+        </div>
+        <ul class="plan-features">
+          <li>12 months featured listing</li>
+          <li>All featured ad benefits</li>
+          <li>Priority placement year-round</li>
+          <li>Save vs monthly pricing</li>
+        </ul>
+        <a href="AD_ANNUAL_LINK" class="buy-btn success sub-link" data-product="ad_annual">Subscribe - $359.88/yr</a>
+      </div>
+
+      <div style="text-align:center; margin-top: 20px;">
+        <div class="lock-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Secure payments powered by Stripe
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>After payment, return to the SmartDealsIQ app and tap <strong>"Refresh Status"</strong> to unlock your features.</p>
+      <br />
+      <a href="smartdealsiq://">Open SmartDealsIQ App</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://smartdealsiq.com/privacy">Privacy Policy</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://smartdealsiq.com/terms">Terms of Service</a>
+      <br /><br />
+      <p>&copy; 2025 SmartDealsIQ. All rights reserved.</p>
+    </div>
+
+    <script>
+      (function() {
+        // Parse URL parameters
+        var params = new URLSearchParams(window.location.search);
+        var vendorId = params.get("vendorId") || "";
+        var email = params.get("email") || "";
+
+        // Show vendor email if available
+        if (email) {
+          var emailEl = document.getElementById("vendor-email");
+          emailEl.textContent = email;
+          emailEl.style.display = "inline-block";
+        }
+
+        // Payment link mapping - replace PLACEHOLDER values with actual Stripe Payment Links
+        var paymentLinks = {
+          boost_24h: "BOOST_24H_LINK",
+          boost_3d: "BOOST_3D_LINK",
+          boost_7d: "BOOST_7D_LINK",
+          pro_monthly: "PRO_MONTHLY_LINK",
+          pro_annual: "PRO_ANNUAL_LINK",
+          ad_30d: "AD_30D_LINK",
+          ad_annual: "AD_ANNUAL_LINK"
+        };
+
+        // Append email as prefilled param to all payment links
+        var allLinks = document.querySelectorAll(".boost-link, .sub-link");
+        allLinks.forEach(function(link) {
+          var product = link.getAttribute("data-product");
+          var baseUrl = paymentLinks[product];
+          if (baseUrl && baseUrl.indexOf("buy.stripe.com") !== -1) {
+            var separator = baseUrl.indexOf("?") !== -1 ? "&" : "?";
+            var finalUrl = baseUrl;
+            if (email) {
+              finalUrl += separator + "prefilled_email=" + encodeURIComponent(email);
+              separator = "&";
+            }
+            if (vendorId) {
+              finalUrl += separator + "client_reference_id=" + encodeURIComponent(vendorId);
+            }
+            link.href = finalUrl;
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

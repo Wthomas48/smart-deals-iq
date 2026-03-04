@@ -1,9 +1,10 @@
-import React from "react";
-import { View, StyleSheet, ScrollView, Pressable, Image } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, ScrollView, Pressable, Image, Alert, Platform } from "react-native";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
@@ -59,6 +60,32 @@ export default function DealDetailScreen() {
     }
   };
   
+  const [dealClaimed, setDealClaimed] = useState(false);
+
+  const handleGetDeal = () => {
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    setDealClaimed(true);
+    Alert.alert(
+      "Deal Claimed!",
+      `Show this screen at ${vendor.name} to redeem your ${savingsPercent}% discount.`,
+      [{ text: "Got it" }]
+    );
+  };
+
+  const handleGetDirections = () => {
+    const lat = vendor.latitude;
+    const lng = vendor.longitude;
+    const label = encodeURIComponent(vendor.name);
+    const url = Platform.select({
+      ios: `maps:0,0?q=${label}@${lat},${lng}`,
+      android: `geo:0,0?q=${lat},${lng}(${label})`,
+      default: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+    });
+    if (url) Linking.openURL(url);
+  };
+
   const handleViewVendor = () => {
     navigation.navigate("VendorDetail", { vendorId: vendor.id });
   };
@@ -164,29 +191,62 @@ export default function DealDetailScreen() {
           <Spacer size="2xl" />
           
           <View style={styles.actionButtons}>
-            <Button onPress={handleViewVendor} style={styles.primaryButton}>
-              View Vendor
-            </Button>
-            <Spacer size="md" />
             <Pressable
-              onPress={handleToggleFavorite}
+              onPress={handleGetDeal}
               style={[
-                styles.favoriteButton,
-                { backgroundColor: favorited ? Colors.primary + "20" : theme.backgroundSecondary },
+                styles.getDealButton,
+                { backgroundColor: dealClaimed ? Colors.success : Colors.primary },
               ]}
             >
               <Feather
-                name={favorited ? "heart" : "heart"}
-                size={20}
-                color={favorited ? Colors.primary : theme.textSecondary}
+                name={dealClaimed ? "check-circle" : "zap"}
+                size={22}
+                color="#fff"
               />
-              <ThemedText
-                type="body"
-                style={{ color: favorited ? Colors.primary : theme.text, marginLeft: Spacing.sm }}
-              >
-                {favorited ? "Saved to Favorites" : "Save to Favorites"}
+              <ThemedText type="h4" style={{ color: "#fff", marginLeft: Spacing.sm }}>
+                {dealClaimed ? "Deal Claimed!" : "Get This Deal"}
               </ThemedText>
             </Pressable>
+            <Spacer size="md" />
+            <View style={styles.secondaryActions}>
+              <Pressable
+                onPress={handleGetDirections}
+                style={[styles.secondaryButton, { backgroundColor: theme.backgroundSecondary }]}
+              >
+                <Feather name="navigation" size={18} color={Colors.secondary} />
+                <ThemedText type="small" style={{ color: Colors.secondary, marginLeft: Spacing.xs }}>
+                  Directions
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handleViewVendor}
+                style={[styles.secondaryButton, { backgroundColor: theme.backgroundSecondary }]}
+              >
+                <Feather name="shopping-bag" size={18} color={Colors.primary} />
+                <ThemedText type="small" style={{ color: Colors.primary, marginLeft: Spacing.xs }}>
+                  View Vendor
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handleToggleFavorite}
+                style={[
+                  styles.secondaryButton,
+                  { backgroundColor: favorited ? Colors.primary + "20" : theme.backgroundSecondary },
+                ]}
+              >
+                <Feather
+                  name="heart"
+                  size={18}
+                  color={favorited ? Colors.primary : theme.textSecondary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{ color: favorited ? Colors.primary : theme.text, marginLeft: Spacing.xs }}
+                >
+                  {favorited ? "Saved" : "Save"}
+                </ThemedText>
+              </Pressable>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -297,14 +357,23 @@ const styles = StyleSheet.create({
   actionButtons: {
     gap: Spacing.md,
   },
-  primaryButton: {
-    width: "100%",
-  },
-  favoriteButton: {
+  getDealButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: Spacing.md,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+  },
+  secondaryActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  secondaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
   },
 });

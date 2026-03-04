@@ -266,14 +266,29 @@ export default function PreferencesScreen() {
         <Pressable
           style={[styles.settingRow, { borderBottomWidth: 0 }]}
           onPress={() => {
-            Alert.alert(
-              "Set Default City",
-              "Enter your default city for when location is unavailable",
-              [
-                { text: "Cancel", style: "cancel" },
-                { text: "Use Current", onPress: () => {} },
-              ]
-            );
+            Alert.prompt
+              ? Alert.prompt(
+                  "Set Default City",
+                  "Enter your default city for when location is unavailable",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Save",
+                      onPress: (city?: string) => {
+                        if (city?.trim()) {
+                          updateLocation({ defaultCity: city.trim() });
+                        }
+                      },
+                    },
+                  ],
+                  "plain-text",
+                  location.defaultCity || ""
+                )
+              : Alert.alert(
+                  "Set Default City",
+                  "Enter your default city in Preferences settings.",
+                  [{ text: "OK" }]
+                );
           }}
         >
           <View style={[styles.settingIcon, { backgroundColor: Colors.secondary + "15" }]}>

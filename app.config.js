@@ -27,21 +27,21 @@ export default {
     scheme: "smartdealsiq",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    owner: "wthomas48",
+    owner: "wt1954",
 
     // EAS Configuration
     extra: {
       eas: {
-        projectId: process.env.EAS_PROJECT_ID || process.env.EXPO_PUBLIC_EAS_PROJECT_ID || "",
+        projectId: process.env.EAS_PROJECT_ID || process.env.EXPO_PUBLIC_EAS_PROJECT_ID || "7b99b09f-ce77-4410-8720-38430c86e038",
       },
       // Runtime environment detection
       isProduction: !IS_DEV && !IS_PREVIEW,
     },
 
-    // OTA Updates (only for production)
+    // OTA Updates
     updates: {
       enabled: !IS_DEV,
-      url: `https://u.expo.dev/${process.env.EAS_PROJECT_ID || process.env.EXPO_PUBLIC_EAS_PROJECT_ID || ""}`,
+      url: "https://u.expo.dev/7b99b09f-ce77-4410-8720-38430c86e038",
       fallbackToCacheTimeout: 0,
     },
     runtimeVersion: {
@@ -53,6 +53,7 @@ export default {
       supportsTablet: true,
       bundleIdentifier: getAppIdentifier(),
       buildNumber: "1",
+      usesAppleSignIn: true,
       infoPlist: {
         // Privacy usage descriptions - REQUIRED for App Store
         NSLocationWhenInUseUsageDescription:
@@ -63,6 +64,8 @@ export default {
           "Smart Deals IQ uses the camera to scan QR codes for deals and promotions.",
         NSPhotoLibraryUsageDescription:
           "Smart Deals IQ accesses your photos to let you upload images for your profile and promotions.",
+        NSPhotoLibraryAddUsageDescription:
+          "Smart Deals IQ saves generated promotional images and flyers to your photo library.",
         // Background modes
         UIBackgroundModes: ["location", "fetch", "remote-notification"],
         // App Transport Security - allows HTTPS connections
@@ -84,6 +87,14 @@ export default {
           {
             NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
             NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp",
+            NSPrivacyAccessedAPITypeReasons: ["C617.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryDiskSpace",
+            NSPrivacyAccessedAPITypeReasons: ["E174.1"],
           },
         ],
       },
@@ -151,6 +162,7 @@ export default {
           },
         },
       ],
+      "expo-apple-authentication",
       "expo-web-browser",
       [
         "expo-location",

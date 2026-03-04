@@ -13,13 +13,17 @@ export const users = pgTable("users", {
     .default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(), // bcrypt hashed
+  password: text("password"), // bcrypt hashed, nullable for social auth users
   role: text("role").notNull().default("customer"), // customer, vendor, admin
   firstName: text("first_name"),
   lastName: text("last_name"),
   phone: text("phone"),
   avatarUrl: text("avatar_url"),
   emailVerified: boolean("email_verified").notNull().default(false),
+  // Social auth provider IDs
+  appleId: text("apple_id").unique(),
+  googleId: text("google_id").unique(),
+  authProvider: text("auth_provider").notNull().default("email"), // email, apple, google
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastLoginAt: timestamp("last_login_at"),
@@ -41,6 +45,17 @@ export const loginUserSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+// Schema for social auth login/registration
+export const socialAuthSchema = z.object({
+  provider: z.enum(["apple", "google"]),
+  identityToken: z.string().min(1, "Identity token is required"),
+  role: userRoleEnum.optional(),
+  firstName: z.string().max(50).optional(),
+  lastName: z.string().max(50).optional(),
+});
+
+export type SocialAuthInput = z.infer<typeof socialAuthSchema>;
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -51,8 +66,8 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export const selectUserSchema = createSelectSchema(users);
 
-// Safe user type (without password)
-export const safeUserSchema = selectUserSchema.omit({ password: true });
+// Safe user type (without password and social auth IDs — authProvider is kept for client UI)
+export const safeUserSchema = selectUserSchema.omit({ password: true, appleId: true, googleId: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -61,7 +76,48 @@ export type RegisterUser = z.infer<typeof registerUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 
 // Vendor category enum
-export const vendorCategoryEnum = z.enum(["food_truck", "restaurant", "vendor"]);
+export const vendorCategoryEnum = z.enum([
+  // Food & Beverage
+  "food_truck",
+  "restaurant",
+  "vendor",
+  "bakery",
+  "cafe",
+  "bar_lounge",
+  "juice_smoothie",
+  "catering",
+  "food_delivery",
+  // Retail & Shopping
+  "boutique",
+  "jewelry",
+  "electronics",
+  "thrift_vintage",
+  "smoke_vape",
+  "pet_store",
+  // Health & Beauty
+  "salon",
+  "barbershop",
+  "nail_spa",
+  "massage",
+  "gym_fitness",
+  "tattoo_piercing",
+  // Auto & Services
+  "auto_detailing",
+  "auto_repair",
+  "tire_shop",
+  // Home & Professional Services
+  "cleaning",
+  "handyman",
+  "landscaping",
+  "photography",
+  "printing",
+  // Entertainment & Events
+  "nightclub",
+  "escape_room",
+  "event_venue",
+  // Cannabis (legal states)
+  "dispensary",
+]);
 export type VendorCategory = z.infer<typeof vendorCategoryEnum>;
 
 // Vendor tier enum
@@ -103,7 +159,7 @@ export const insertVendorListingSchema = createInsertSchema(vendorListings, {
   city: z.string().min(1, "City is required").max(100),
   state: z.string().min(1, "State is required").max(50),
   vendorTier: vendorTierEnum.default("free"),
-}).omit({ id: true, createdAt: true, updatedAt: true, lastLocationUpdate: true });
+}).omit({ id: true, userId: true, createdAt: true, updatedAt: true, lastLocationUpdate: true });
 
 export const updateVendorLocationSchema = z.object({
   locationLat: z.number().min(-90).max(90),
