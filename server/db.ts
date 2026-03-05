@@ -9,6 +9,30 @@ let db: ReturnType<typeof drizzle> | null = null;
 let pool: pg.Pool | null = null;
 
 /**
+ * Validate that DATABASE_URL is a real connection string, not a placeholder
+ */
+function validateDatabaseUrl(url: string): boolean {
+  const placeholderPatterns = [
+    /[@/]host[:\/]/, // literal "host" as hostname
+    /user:password/, // placeholder credentials
+    /your[_-]/, // "your_password", "your-host", etc.
+    /\/\/username:/, // literal "username"
+    /localhost/, // localhost in production
+  ];
+
+  for (const pattern of placeholderPatterns) {
+    if (pattern.test(url)) {
+      // Allow localhost in development
+      if (pattern.source === "localhost" && process.env.NODE_ENV !== "production") {
+        continue;
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Initialize database connection
  * Returns null if DATABASE_URL is not set (allows app to run without DB in dev mode)
  */
@@ -19,6 +43,15 @@ export function getDb() {
 
   if (!connectionString) {
     console.warn("[DB] DATABASE_URL not set - running without database");
+    return null;
+  }
+
+  if (!validateDatabaseUrl(connectionString)) {
+    // Mask the URL for logging (show only the hostname part)
+    const masked = connectionString.replace(/\/\/[^@]+@/, "//***:***@");
+    console.error(`[DB] ERROR: DATABASE_URL appears to be a placeholder: ${masked}`);
+    console.error("[DB] Set DATABASE_URL to your actual PostgreSQL connection string from Railway");
+    console.error("[DB] In Railway: click PostgreSQL service > Connect > Connection URL");
     return null;
   }
 
