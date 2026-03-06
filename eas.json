@@ -7,7 +7,7 @@
   "build": {
     "base": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.smartdealsiq.com"
+        "EXPO_PUBLIC_API_URL": "https://smart-deals-iq-production.up.railway.app"
       }
     },
     "development": {
